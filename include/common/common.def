@@ -1,0 +1,69 @@
+#ifndef TreeNodeDefine
+#define TreeNodeDefine(x)
+#endif
+
+#ifndef OpcodeDefine
+#define OpcodeDefine(x, s)
+#endif
+
+#ifndef CastTypeDefine
+#define CastTypeDefine(x, s)
+#endif
+//按需取用，按需增加
+
+// Node
+TreeNodeDefine(ND_CompUnit)
+TreeNodeDefine(ND_Identifier)
+//TreeNodeDefine(Btype)
+TreeNodeDefine(ND_VarDecl)
+TreeNodeDefine(ND_VarDef)
+//TreeNodeDefine(InitVal)
+TreeNodeDefine(ND_FuncDef)
+TreeNodeDefine(ND_FuncCall)
+//TreeNodeDefine(ND_FuncType)
+//TreeNodeDefine(ND_FuncParam)
+//TreeNodeDefine(ND_FuncParams)
+TreeNodeDefine(ND_Block)
+//TreeNodeDefine(ND_BlockItem)
+TreeNodeDefine(ND_Stmt)
+TreeNodeDefine(ND_IfStmt)
+TreeNodeDefine(ND_WhileStmt)
+TreeNodeDefine(ND_BreakStmt)
+TreeNodeDefine(ND_ContinueStmt)
+TreeNodeDefine(ND_ReturnStmt)
+
+TreeNodeDefine(ND_UnaryExp)
+TreeNodeDefine(ND_BinaryExp)
+
+TreeNodeDefine(ND_IntegerLiteral) //整型字面量
+TreeNodeDefine(ND_AssignExp)
+TreeNodeDefine(ND_VariableRef)
+TreeNodeDefine(ND_TypeCast)
+TreeNodeDefine(ND_StringLiteral)
+
+//Binary Opcode
+OpcodeDefine(OP_Add,    "add")
+OpcodeDefine(OP_Sub,    "sub")
+OpcodeDefine(OP_Mul,    "mul")
+OpcodeDefine(OP_Div,    "div")
+OpcodeDefine(OP_Mod,    "mod")
+OpcodeDefine(OP_Lt,     "lt")
+OpcodeDefine(OP_Gt,     "gt")
+OpcodeDefine(OP_Le,     "le")
+OpcodeDefine(OP_Ge,     "ge")
+OpcodeDefine(OP_Eq,     "eq")
+OpcodeDefine(OP_Ne,     "ne")
+OpcodeDefine(OP_Land,   "and")
+OpcodeDefine(OP_Lor,    "or")
+OpcodeDefine(OP_Lxor,   "xor")
+//Unary Opcode
+OpcodeDefine(OP_Lnot,   "not")
+OpcodeDefine(OP_Neg,    "neg")
+OpcodeDefine(OP_Pos,    "pos")
+
+CastTypeDefine(INT, "int")
+CastTypeDefine(VOID, "void")
+
+#undef OpcodeDefine
+#undef CastTypeDefine
+#undef TreeNodeDefine
