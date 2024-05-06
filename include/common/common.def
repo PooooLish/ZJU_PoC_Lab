@@ -6,9 +6,9 @@
 #define OpcodeDefine(x, s)
 #endif
 
-#ifndef CastTypeDefine
-#define CastTypeDefine(x, s)
-#endif
+// #ifndef CastTypeDefine
+// #define CastTypeDefine(x, s)
+// #endif
 //按需取用，按需增加
 
 // Node
@@ -17,6 +17,7 @@ TreeNodeDefine(ND_Identifier)
 //TreeNodeDefine(Btype)
 TreeNodeDefine(ND_VarDecl)
 TreeNodeDefine(ND_VarDef)
+TreeNodeDefine(ND_ArrayIndexList)
 //TreeNodeDefine(InitVal)
 TreeNodeDefine(ND_FuncDef)
 TreeNodeDefine(ND_FuncCall)
@@ -35,7 +36,10 @@ TreeNodeDefine(ND_ReturnStmt)
 TreeNodeDefine(ND_UnaryExp)
 TreeNodeDefine(ND_BinaryExp)
 
-TreeNodeDefine(ND_IntegerLiteral) //整型字面量
+TreeNodeDefine(ND_BType)
+TreeNodeDefine(ND_FuncType)
+
+TreeNodeDefine(ND_IntegerLiteral) 
 TreeNodeDefine(ND_AssignExp)
 TreeNodeDefine(ND_VariableRef)
 TreeNodeDefine(ND_TypeCast)
@@ -61,9 +65,9 @@ OpcodeDefine(OP_Lnot,   "not")
 OpcodeDefine(OP_Neg,    "neg")
 OpcodeDefine(OP_Pos,    "pos")
 
-CastTypeDefine(INT, "int")
-CastTypeDefine(VOID, "void")
+// CastTypeDefine(INT, "int")
+// CastTypeDefine(VOID, "void")
 
 #undef OpcodeDefine
-#undef CastTypeDefine
+// #undef CastTypeDefine
 #undef TreeNodeDefine

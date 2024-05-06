@@ -10,10 +10,10 @@ enum OpType {
 };
 
 // 定义变量类型枚举
-enum CastType {
-#define CastTypeDefine(x, s) x,
-#include "common/common.def"
-};
+// enum CastType {
+// #define CastTypeDefine(x, s) x,
+// #include "common/common.def"
+// };
 
 // 定义节点类型枚举
 enum NodeType {
@@ -95,24 +95,26 @@ struct IntegerLiteral : public TreeExp {
 // };
 
 // 类型判断表达式节点
-struct TypeCast : public TreeExp {
-    constexpr static NodeType this_type = ND_TypeCast;
-    CastType type;
-    TypeCast(CastType type)
-        : TreeExp(this_type), type(type) {
-    }
-};
+// struct TypeCast : public TreeExp {
+//     constexpr static NodeType this_type = ND_TypeCast;
+//     CastType type;
+//     TypeCast(CastType type)
+//         : TreeExp(this_type), type(type) {
+//     }
+// };
 
 // type节点
-// struct BType : public Node {
-//     constexpr static CastType this_type;
-//     BType() : Node(this_type) {}
-// };
+struct BType : public TreeExp {
+    constexpr static NodeType this_type = ND_BType;
+    std::string type;
+    BType(std::string type): TreeExp(this_type), type(type) {}
+};
 
-// struct FuncType : public Node {
-//     constexpr static CastType this_type;
-//     FuncType() : Node(this_type) {}
-// };
+struct FuncType : public TreeExp {
+    constexpr static NodeType this_type = ND_FuncType;
+    std::string type;
+    FuncType(std::string type): TreeExp(this_type), type(type) {}
+};
 
 // 根节点
 struct CompUnit : public Node {
@@ -132,36 +134,62 @@ struct FuncDef : public Node {
         : Node(this_type), func_name(name), param_types(params), return_type(ret_type), body(block) {}
 };
 
-// 变量声明节点
-struct VarDecl : public Node {
-    constexpr static NodeType this_type = ND_VarDecl;
-    std::string BType;
-    // ExprPtr init_value
-    std::vector<NodePtr> VarDefList;
-    VarDecl(std::string btype,std::vector<NodePtr> init)
-        : Node(this_type), BType(btype), VarDefList(init) {}
-};
-
-// 变量定义队列
-std::vector<NodePtr> VarDefList {
+struct FuncFParam : public Node {
 
 };
 
-// 变量定义节点
-struct VarDef :public Node {
-    constexpr static NodeType this_type = ND_VarDef;
-    std::string var_name;
-    std::string var_type;
-    ExprPtr init_value;
-    VarDef(std::string name, std::string type, ExprPtr init)
-        : Node(this_type), var_name(name), var_type(type), init_value(init) {}
+struct FuncFParams : public Node {
+
 };
+
 
 // 块节点
 struct Block : public Node {
     constexpr static NodeType this_type = ND_Block;
     std::vector<NodePtr> statements;
     Block() : Node(this_type) {}
+};
+
+struct BlockItem : public Node {
+
+};
+
+struct BlockItemList : public Node {
+
+};
+
+struct Stmt : public Node {
+
+};
+
+// 变量定义节点
+struct VarDef : public Node {
+    constexpr static NodeType this_type = ND_VarDef;
+    std::string var_name;
+    std::string var_type;
+    ExprPtr init_value;
+    std::vector<int> array_indices; // 添加数组索引
+    VarDef(std::string name, std::string type, ExprPtr init)
+        : Node(this_type), var_name(name), var_type(type), init_value(init) {}
+};
+
+// 变量声明节点
+struct VarDecl : public Node {
+    constexpr static NodeType this_type = ND_VarDecl;
+    std::string btype;
+    std::vector<VarDef> VarDefList;
+    VarDecl(BType BType, std::vector<struct VarDef> init)
+        : Node(this_type), btype(BType.type), VarDefList(init) {}
+};
+
+// 变量定义队列
+std::vector<VarDef> VarDefList;
+
+// 数组索引列表节点
+struct ArrayIndexList : public Node {
+    constexpr static NodeType this_type = ND_ArrayIndexList;
+    std::vector<int> indices;
+    ArrayIndexList() : Node(this_type) {}
 };
 
 // 标识符节点

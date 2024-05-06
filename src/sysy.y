@@ -3,7 +3,7 @@
 #include <ast/ast.h>
 void yyerror(const char *s);
 extern int yylex(void);
-extern NodePtr root;
+extern struct CompUnit* root = new CompUnit();
 %}
 
 /// types
@@ -11,6 +11,7 @@ extern NodePtr root;
     int ival;
     char *ident;
     ExprPtr expr;
+    NodePtr node;
     OpType op;
 }
 
@@ -22,8 +23,8 @@ extern NodePtr root;
 
 %start CompUnit
 
-%type <expr> CompUnit Decl BType VarDecl VarDefList VarDef ArrayIndexList InitVal FuncType
-%type <expr> InitValList FuncDef FuncFParams FuncFParam NumList Block BlockItemList BlockItem
+%type <node> CompUnit Decl BType VarDecl VarDefList VarDef ArrayIndexList InitVal FuncType
+%type <expr> FuncDef FuncFParams FuncFParam NumList Block BlockItemList BlockItem
 %type <expr> Stmt Exp LVal LValExpList PrimaryExp Number UnaryExp UnaryOp FuncRParams
 %type <expr> MulExp AddExp RelExp EqExp LOrExp LAndExp
 
@@ -34,48 +35,34 @@ extern NodePtr root;
 %left NOT
 
 %%
-CompUnit    : Decl                                      { root->children->push_back($1); }
-            | FuncDef                                   { root->children->push_back($1); }
-            | CompUnit Decl                             { root->children->push_back($2); }
-            | CompUnit FuncDef                          { root->children->push_back($2); }
+CompUnit    : Decl                                      { root->children.push_back($1); }
+            | FuncDef                                   { root->children.push_back($1); }
+            | CompUnit Decl                             { root->children.push_back($2); }
+            | CompUnit FuncDef                          { root->children.push_back($2); }
             ;
 
 Decl        : VarDecl                                   { $$ = $1; }
             ;
 
-BType       : INT                                       { $$ = "int"; }
+BType       : INT                                       { $$ = new BType("int"); }
             ;
 
 VarDecl     : BType VarDefList SEMICOLON                    { $$ = new VarDecl($1,$2); }
             ;
 
-VarDefList  : VarDefList COMMA VarDef                           { $$ = $1; $$->children->push_back($3); }
-            | VarDef                                            { $$ = new VarDefList(); $$->children->push_back($1);}
+VarDefList  : VarDefList COMMA VarDef                           { $$ = $1; $$->push_back($3); }
+            | VarDef                                            { $$ = new std::vector<VarDef>(); $$->push_back($1);}
             ;
 
-VarDef      : IDENT                                             { $$ = new VarDef(); }
-            | IDENT ASSIGN InitVal                              { $$ = new VarDef(); }
-            | IDENT ArrayIndexList                              { $$ = new VarDef(); }
-            | IDENT ArrayIndexList ASSIGN InitVal               { $$ = new VarDef(); }
-            ;
+VarDef      : IDENT ArrayIndexList  { $$ = new VarDef($1, "", nullptr); $$->array_indices = $2->indices; }
+            | IDENT ASSIGN InitVal  { $$ = new VarDef($1, "", $3); }
+            | IDENT                 { $$ = new VarDef($1, "", nullptr); }
 
-ArrayIndexList  : ArrayIndexList LBRACKET INTCONST RBRACKET         { $$ = $1; $$->children->push_back($3); }
-                | LBRACKET INTCONST RBRACKET                        { $ = new ArrayIndexList(); $$->children->push_back($2); }
-                ;
-
-
-
-
-
+ArrayIndexList : ArrayIndexList LBRACKET INTCONST RBRACKET  { $$ = $1; $$->indices.push_back($3); }
+               | LBRACKET INTCONST RBRACKET                 { $$ = new ArrayIndexList(); $$->indices.push_back($2); }
+               ;
 
 InitVal     : Exp                                                   { $$ = $1; }
-            | LBRACE RBRACE                                         { $$ = new AST("test"); }
-            | LBRACE InitValList RBRACE                             { $$ = new AST("test"); $$->insert($2); }
-            ;
-
-InitValList : InitValList COMMA InitVal                         { $$ = $1; $$->insert($3); }
-            | InitVal                                           { $$ = new AST("test"); $$->insert($1); }
-            ;
 
 
 
@@ -83,8 +70,8 @@ InitValList : InitValList COMMA InitVal                         { $$ = $1; $$->i
 
 
 
-FuncType    : INT                                       { $$ = "int"; }
-            | VOID                                      { $$ = "void"; }
+FuncType    : INT                                       { $$ = new FuncType("int"); }
+            | VOID                                      { $$ = new FuncType("void"); }
             ;
 
 FuncDef     : FuncType IDENT LPAREN RPAREN Block                       { $$ = new AST("FuncDef"); $$->dtype = $1->tokentype; $$->ID = $2; $$->insert($5); }
