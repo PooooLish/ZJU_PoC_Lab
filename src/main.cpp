@@ -4,11 +4,23 @@
 
 extern int yyparse();
 
-NodePtr root;
+extern FILE* yyin;
+
+extern NodePtr root;
 
 int main(int argc, char **argv) {
-    yyparse();
-    print_expr(static_cast<ExprPtr>(root));
-    fmt::print("Hello, World!\n");
+    yyin = fopen(argv[1], "r");
+    int parse_result = yyparse();
+    fclose(yyin);
+
+    if (parse_result != 0) {
+        return 1;
+    }
+
+    if (root) {
+        // print_expr(root, std::string prefix = "", std::string ident = "");
+        fmt::print("Success\n");
+    }
+
     return 0;
 }
