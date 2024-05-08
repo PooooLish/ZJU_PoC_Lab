@@ -18,8 +18,8 @@ int main(int argc, char **argv) {
     }
 
     if (root) {
-        // print_expr(root, std::string prefix = "", std::string ident = "");
-        fmt::print("Success\n");
+        // print_expr(root,"","");
+        fmt::print("\nSuccess\n");
     }
 
     return 0;

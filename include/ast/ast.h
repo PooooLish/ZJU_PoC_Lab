@@ -2,6 +2,7 @@
 #include <type_traits>
 #include <string>
 #include <vector>
+#include <iostream>
 
 // 定义操作符类型枚举
 enum OpType {
@@ -43,10 +44,11 @@ struct Node {
     template <typename T> T as_unchecked() { return static_cast<T>(this); }
 };
 
-// 表达式节点基类
-// struct TreeExp : public Node {
-//     TreeExp(NodeType type) : Node(type) {}
-// };
+struct Exp :public Node {
+   constexpr static NodeType this_type = ND_Exp; 
+   NodePtr exp;
+   Exp(NodePtr exp) : Node(this_type), exp(exp) {}
+};
 
 // 基本表达式节点
 struct PrimaryExp : public Node {
@@ -140,8 +142,8 @@ struct ContinueStmt;
 // 声明
 struct Decl : public Node {
     constexpr static NodeType this_type = ND_Decl;
-    NodePtr v_decl;
-    Decl(NodePtr decl) : Node(this_type),v_decl(decl) {}
+    NodePtr vardecl;
+    Decl(NodePtr decl) : Node(this_type),vardecl(decl) {}
 };
 
 struct InitVal : public Node {
@@ -163,7 +165,7 @@ struct VarDef : public Node {
 // 变量定义队列
 struct VarDefList : public Node {   
     constexpr static NodeType this_type = ND_VarDefList;
-    std::vector<VarDef*> children;
+    std::vector<NodePtr> children;
     VarDefList() : Node(this_type) {}
 };
 
@@ -171,9 +173,10 @@ struct VarDefList : public Node {
 struct VarDecl : public Node {
     constexpr static NodeType this_type = ND_VarDecl;
     std::string btype;
-    std::vector<VarDef*> VarDefs;
-    VarDecl(BType* BType, VarDefList* VarDefList)
-        : Node(this_type), btype(BType->type), VarDefs(VarDefList->children) {}
+    // std::vector<VarDef*> vardeflist;
+    NodePtr vardeflist;
+    VarDecl(BType* BType, NodePtr VarDefList)
+        : Node(this_type), btype(BType->type), vardeflist(VarDefList) {}
 };
 
 // 数组索引列表节点
@@ -203,7 +206,7 @@ struct FuncFParam : public Node {
 // 函数实参列表
 struct FuncFParams : public Node {
     constexpr static NodeType this_type = ND_FuncFParams;
-    std::vector<FuncFParam*> children;
+    std::vector<NodePtr> children;
     FuncFParams() : Node(this_type) {}
 };
 
@@ -219,10 +222,6 @@ struct FuncDef : public Node {
         : Node(this_type), return_type(functype->type), func_name(name), params(params), body(block) {}
 };
 
-struct Exp : public Node {
-    constexpr static NodeType this_type = ND_Exp;
-};
-
 // 块节点
 struct Block : public Node {
     constexpr static NodeType this_type = ND_Block;
@@ -232,7 +231,7 @@ struct Block : public Node {
 
 struct BlockItemList : public Node {
     constexpr static NodeType this_type = ND_BlockItemList;
-    std::vector<BlockItem*> children;
+    std::vector<NodePtr> children;
     BlockItemList() : Node(this_type) {}
 };
 
@@ -242,6 +241,7 @@ struct BlockItem : public Node {
     BlockItem(NodePtr stmt_decl) : Node(this_type) , item(stmt_decl) {}
 };
 
+// Stmt
 struct Stmt : public Node {
     constexpr static NodeType this_type = ND_Stmt;
     NodePtr stmtPtr;
@@ -290,6 +290,7 @@ struct ContinueStmt : public Node {
     ContinueStmt() : Node(this_type) {}
 };
 
+// 左值表达式
 struct Lval : public Node {
     constexpr static NodeType this_type = ND_LVal;
     std::string ident_name;
@@ -298,18 +299,56 @@ struct Lval : public Node {
         : Node(this_type), ident_name(name), lvalexplist(lvalexplist) {}
 };
 
+// 左值表达式rhs
 struct LValExpList : public Node {
     constexpr static NodeType this_type = ND_LValExpList;
     std::vector<NodePtr> children;
     LValExpList() : Node(this_type) {}
 };
 
-// 标识符节点
-struct Identifier : public Node {
-    constexpr static NodeType this_type = ND_Identifier;
-    std::string var_name;
-    Identifier(std::string name) : Node(this_type), var_name(name) {}
-};
-
-// 打印表达式节点的可能辅助函数
-void print_expr(CompUnit exp, std::string prefix = "", std::string ident = "");
+// print_expr是用于打印ast树的函数
+// 如：当我输入的文件内容如下时
+// int factorial(int n) {
+//     if (n == 0)
+//         return 1;
+//     return n * factorial(n - 1);
+// }
+// int main() {
+//     int n = getint();
+//     int result = factorial(n);
+//     putint(result);
+//     return 0;
+// }
+// 通过print_expr可以生成这样一个ast树：
+//  CompUnit
+//  ├─ FuncDef factorial 'int(int)'
+//  │  ├─ FuncFParam n 'int'
+//  │  └─ Block
+//  │     ├─ IfStmt
+//  │     │  ├─ RelationOp ==
+//  │     │  │  ├─ Ident n
+//  │     │  │  └─ IntConst 0
+//  │     │  └─ ReturnStmt
+//  │     │     └─ IntConst 1
+//  │     └─ ReturnStmt
+//  │        └─ BinaryOp *
+//  │           ├─ Ident n
+//  │           └─ Call factorial
+//  │              └─ BinaryOp -
+//  │                 ├─ Ident n
+//  │                 └─ IntConst 1
+//  └─ FuncDef main 'int()'
+//     └─ Block
+//        ├─ VarDecl
+//        │  └─ Ident n
+//        │     └─ Call getint
+//        ├─ VarDecl
+//        │  └─ Ident result
+//        │     └─ Call factorial
+//        │        └─ Ident n
+//        ├─ ExpStmt
+//        │  └─ Call putint
+//        │     └─ Ident result
+//        └─ ReturnStmt
+//           └─ IntConst 0
+void print_expr(NodePtr exp, std::string prefix = "", std::string ident = "");
