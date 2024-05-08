@@ -18,7 +18,7 @@ int main(int argc, char **argv) {
     }
 
     if (root) {
-        // print_expr(root,"","");
+        print_expr(root,"");
         fmt::print("\nSuccess\n");
     }
 

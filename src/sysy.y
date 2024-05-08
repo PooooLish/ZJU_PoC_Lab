@@ -87,7 +87,7 @@ Block           : LBRACE RBRACE                         { $$ = new Block(nullptr
                 | LBRACE BlockItemList RBRACE           { $$ = new Block($2);  if (TESTPRINT) { printf("[Block->LBRACE BlockItemList RBRACE] \n"); } }
                 ;
 
-BlockItemList   : BlockItemList BlockItem               { $$ = $1; $$->as<BlockItemList*>()->children.push_back($1); if (TESTPRINT) { printf("[BlockItemList->BlockItemList BlockItem] \n"); } }
+BlockItemList   : BlockItemList BlockItem               { $$ = $1; $$->as<BlockItemList*>()->children.push_back($2); if (TESTPRINT) { printf("[BlockItemList->BlockItemList BlockItem] \n"); } }
                 | BlockItem                             { $$ = new BlockItemList(); $$->as<BlockItemList*>()->children.push_back($1); if (TESTPRINT) { printf("[BlockItemList->BlockItem] \n"); } }
                 ;
 
