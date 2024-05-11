@@ -18,19 +18,20 @@ void print_expr(NodePtr exp, std::string prefix) {
     if (exp == nullptr) {
         return;
     }
-    std::cout << prefix;
 
     switch (exp->node_type) {
         case ND_CompUnit: {
-            std::cout << "CompUnit" << std::endl;
+            std::cout << "CompUnit" << exp->node_type << std::endl;
             auto comp_unit = exp->as<CompUnit*>();
             for (auto child : comp_unit->children) {
-                print_expr(child,""); 
+                print_expr(child,prefix + "  "); 
+                // std::cout << prefix.length() << std::endl;
             }
             break;
         }
         case ND_FuncDef: {
-            std::cout << "FuncDef " << exp->as<FuncDef*>()->func_name << " '" << exp->as<FuncDef*>()->return_type << "(";
+            
+            std::cout << prefix << "FuncDef " << exp->as<FuncDef*>()->func_name << " '" << exp->as<FuncDef*>()->return_type << "(";
             auto params = exp->as<FuncDef*>()->params;
             if (params != nullptr) {
                 print_expr(params, "");
@@ -58,36 +59,31 @@ void print_expr(NodePtr exp, std::string prefix) {
             break;
         }
         case ND_Block: {
-            std::cout << "Block" << std::endl;
+            std::cout << prefix << "Block" << std::endl;
 
             BlockItemList* list = exp->as<Block*>()->itemList->as<BlockItemList*>();
             for (auto child : list->children) {
-                if (child->as<BlockItem*>() == nullptr) {
-                    continue;
-                } else {
-                    NodePtr ptr = child->as<BlockItem*>()->item;
-                    if (ptr->node_type == ND_Stmt){
-                        print_expr(ptr, prefix + "  ");
-                    } else if (ptr->node_type == ND_Decl){
-                        print_expr(ptr, prefix + "  ");
-                    }
+                NodePtr ptr = child->as<BlockItem*>()->item;
+                if (ptr->node_type == ND_Stmt){
+                    print_expr(ptr, prefix + "  ");
+                } else if (ptr->node_type == ND_Decl){
+                    print_expr(ptr, prefix + "  ");
                 }
-
             }
             break;
         }
         case ND_Stmt: {
-            std::cout << "Stmt" << std::endl;
-            print_expr(exp->as<Stmt*>()->stmtPtr,prefix + "  ");
+            // std::cout << "Stmt" << std::endl;
+            print_expr(exp->as<Stmt*>()->stmtPtr,prefix);
             break;
         }
         case ND_Decl: {
-            std::cout << "Decl" << std::endl;
-            print_expr(exp->as<Decl*>()->vardecl,prefix + "  ");
+            // std::cout << "Decl" << std::endl;
+            print_expr(exp->as<Decl*>()->vardecl,prefix);
             break;
         }
         case ND_VarDecl: {
-            std::cout << "VarDecl" << std::endl;
+            std::cout << prefix << "VarDecl" << std::endl;
             VarDefList* list= exp->as<VarDecl*>()->vardeflist->as<VarDefList*>();
             for (auto child : list->children) {
                 if (child == nullptr) break;
@@ -96,22 +92,29 @@ void print_expr(NodePtr exp, std::string prefix) {
             break;
         }
         case ND_VarDef: {
-            std::cout << "Ident " << exp->as<VarDef*>()->var_name << std::endl;
+            std::cout << prefix <<"Ident " << exp->as<VarDef*>()->var_name << std::endl;
             NodePtr init_value = exp->as<VarDef*>()->init_value;
-            if (init_value != nullptr) {
-                NodePtr ptr = init_value->as<InitVal*>()->exp->as<Exp*>()->exp;
-                print_expr(ptr, prefix);
-            } else {
-                break;
-            }
+            print_expr(init_value,prefix + "  ");
+            // if (init_value != nullptr) {
+            //     NodePtr ptr = init_value->as<InitVal*>()->exp->as<Exp*>()->exp;
+            //     print_expr(ptr, prefix);
+            // } else {
+            //     break;
+            // }
+            break;
+        }
+        case ND_InitVal: {
+            std::cout << prefix <<"InitVal " << std::endl;
+            // NodePtr ptr = exp->as<InitVal*>()->exp;
+            // print_expr(exp ,prefix + "  ");
             break;
         }
         case ND_LVal: {
-            std::cout << "LVal " << exp->as<Lval*>()->ident_name << std::endl;
-            // auto lvalexplist = exp->as<Lval*>()->lvalexplist;
-            // if (lvalexplist != nullptr) {
-            //     print_expr(lvalexplist, prefix + "  ");
-            // }
+            std::cout << prefix << "Ident " << exp->as<Lval*>()->ident_name << std::endl;
+            auto lvalexplist = exp->as<Lval*>()->lvalexplist;
+            if (lvalexplist != nullptr) {
+                print_expr(lvalexplist, prefix);
+            }
             break;
         }
         case ND_LValExpList: {
@@ -125,43 +128,39 @@ void print_expr(NodePtr exp, std::string prefix) {
             break;
         }
         case ND_AssignStmt: {
-            std::cout << "AssignStmt" << std::endl;
+            std::cout << prefix << "AssignStmt" << std::endl;
             print_expr(exp->as<AssignStmt*>()->lhs, prefix + "  ");
             print_expr(exp->as<AssignStmt*>()->rhs, prefix + "  ");
             break;
         }
         case ND_ReturnStmt: {
-            std::cout << "ReturnStmt" << std::endl;
+            std::cout << prefix << "ReturnStmt" << std::endl;
             print_expr(exp->as<ReturnStmt*>()->exp, prefix + "  ");
             break;
         }
         case ND_IfStmt: {
-            std::cout << "IfStmt" << std::endl;
+            std::cout << prefix << "IfStmt" << std::endl;
             print_expr(exp->as<IfStmt*>()->condition, prefix + "  ");
             print_expr(exp->as<IfStmt*>()->then_stmt, prefix + "  ");
             print_expr(exp->as<IfStmt*>()->else_stmt, prefix + "  ");
             break;
         }
         case ND_WhileStmt: {
-            std::cout << "WhileStmt" << std::endl;
+            std::cout << prefix << "WhileStmt" << std::endl;
             print_expr(exp->as<WhileStmt*>()->condition, prefix + "  ");
             print_expr(exp->as<WhileStmt*>()->body, prefix + "  ");
             break;
         }
         case ND_BreakStmt: {
-            std::cout << "BreakStmt" << std::endl;
+            std::cout << prefix << "BreakStmt" << std::endl;
             break;
         }
         case ND_ContinueStmt: {
-            std::cout << "ContinueStmt" << std::endl;
+            std::cout << prefix << "ContinueStmt" << std::endl;
             break;
         }
         case ND_IntegerLiteral: {
-            std::cout << "IntConst " << exp->as<IntegerLiteral*>()->value << std::endl;
-            break;
-        }
-        case ND_BType: {
-            std::cout << "BType " << exp->as<BType*>()->type << std::endl;
+            std::cout << prefix << "IntConst " << exp->as<IntegerLiteral*>()->value << std::endl;
             break;
         }
         case ND_FuncRParams: {
@@ -171,48 +170,35 @@ void print_expr(NodePtr exp, std::string prefix) {
             }
             break;
         }
+        case ND_Exp: {
+            print_expr(exp->as<Exp*>()->exp, prefix);
+            break;
+        }
+        case ND_PrimaryExp: {
+            NodePtr ptr = exp->as<PrimaryExp*>()->pri_exp;
+            print_expr(ptr, prefix);
+            break;
+        }
         case ND_BinaryExp: {
-            std::cout << "BinaryOp " << op_str(exp->as<BinaryExp*>()->op) << std::endl;
+            std::cout << prefix << "BinaryOp " << op_str(exp->as<BinaryExp*>()->op) << std::endl;
             print_expr(exp->as<BinaryExp*>()->lhs, prefix + "  ");
             print_expr(exp->as<BinaryExp*>()->rhs, prefix + "  ");
             break;
         }
-        case ND_UnaryExp: {         
-            auto primaryexp = exp->as<UnaryExp*>()->primaryexp;
-            if (primaryexp != nullptr) {
-                // std::cout << "1" << std::endl;
-                NodePtr ptr = primaryexp->as<PrimaryExp*>()->pri_exp;
-                if (ptr->node_type == ND_LVal){
-                    std::cout << "ND_LVal" << std::endl;
-                    print_expr(ptr, prefix + "  |");
-                } else if (ptr->node_type == ND_Exp) {
-                    std::cout << "ND_Exp" << std::endl;
-                    print_expr(ptr, prefix + "  |");
-                } else if (ptr->node_type == ND_IntegerLiteral) {
-                    // std::cout << "ND_IntegerLiteral" << std::endl;
-                    // print_expr(ptr, prefix , "");
-                    std::cout << "IntConst " << ptr->as<IntegerLiteral*>()->value <<std::endl;
-                    
-                }
+        case ND_UnaryExp: {        
+            // std::cout << "UnaryExp " << std::endl;
+            if (exp->as<UnaryExp*>()->primaryexp != nullptr) {
+                print_expr(exp->as<UnaryExp*>()->primaryexp, prefix);
+                break;
+            } else if (exp->as<UnaryExp*>()->ident_name != "") {
+                break;
+            } else if (exp->as<UnaryExp*>()->operand != nullptr) {
                 break;
             }
-            
-            auto funcrparams = exp->as<UnaryExp*>()->funcrparams;
-            if (funcrparams != nullptr) {
-                std::cout << "2" << std::endl;
-                print_expr(funcrparams, prefix + "│  ");
-                break;
-            }
-            
-            auto operand = exp->as<UnaryExp*>()->operand;
-            if (operand != nullptr) {
-                std::cout << "3" << std::endl;
-                print_expr(operand, prefix + "│  ");
-                break;
-            }
-            break;
-            
+
+            break;    
         }
+
         default:
             break;
     }

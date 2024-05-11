@@ -145,8 +145,8 @@ MulExp      : UnaryExp                              { $$ = $1; if (TESTPRINT) { 
             ;
 
 AddExp      : MulExp                                { $$ = $1;   if (TESTPRINT) { printf("[AddExp->MulExp] \n"); }  }
-            | AddExp ADD MulExp                     { $$ = new BinaryExp(OpType::OP_Mul, $1, $3);  if (TESTPRINT) { printf("[AddExp->AddExp ADD MulExp] \n"); } }
-            | AddExp SUB MulExp                     { $$ = new BinaryExp(OpType::OP_Mul, $1, $3);  if (TESTPRINT) { printf("[AddExp->AddExp SUB MulExp] \n"); } }
+            | AddExp ADD MulExp                     { $$ = new BinaryExp(OpType::OP_Add, $1, $3);  if (TESTPRINT) { printf("[AddExp->AddExp ADD MulExp] \n"); } }
+            | AddExp SUB MulExp                     { $$ = new BinaryExp(OpType::OP_Sub, $1, $3);  if (TESTPRINT) { printf("[AddExp->AddExp SUB MulExp] \n"); } }
             ;
 
 RelExp      : AddExp                                { $$ = $1;  if (TESTPRINT) { printf("[RelExp->AddExp] \n"); } }

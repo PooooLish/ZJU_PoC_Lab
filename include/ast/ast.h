@@ -61,10 +61,10 @@ struct PrimaryExp : public Node {
 struct UnaryExp : public Node {
     constexpr static NodeType this_type = ND_UnaryExp;
     OpType op;
-    std::string ident_name;
-    NodePtr funcrparams;
-    NodePtr primaryexp;
-    NodePtr operand;
+    std::string ident_name = "";
+    NodePtr funcrparams = nullptr;
+    NodePtr primaryexp = nullptr;
+    NodePtr operand = nullptr;
     UnaryExp(NodePtr primaryexp) 
         : Node(this_type),primaryexp(primaryexp) {}
     UnaryExp(std::string ident_name, NodePtr funcrparams) 
