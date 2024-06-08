@@ -110,8 +110,8 @@ Stmt            : LVal ASSIGN Exp SEMICOLON                     { $$ = new Stmt(
 Exp         : LOrExp                                { $$ = new Exp($1); if (TESTPRINT) { printf("[Exp->LOrExp] \n"); } }
             ;
 
-LVal        : IDENT                                 { $$ = new Lval($1,nullptr); if (1) { printf("[LVal->IDENT] %s\n\n",$1); }}
-            | IDENT LValExpList                     { $$ = new Lval($1,$2); if (1) { printf("[LVal->IDENT] %s\n\n",$1); }}
+LVal        : IDENT                                 { $$ = new Lval($1,nullptr); if (TESTPRINT) { printf("[LVal->IDENT] \n"); }}
+            | IDENT LValExpList                     { $$ = new Lval($1,$2); if (TESTPRINT) { printf("[LVal->IDENT] \n"); }}
             ;
 
 LValExpList : LValExpList LBRACKET Exp RBRACKET     { $$ = $1; $$->as<LValExpList*>()->children.push_back($3); if (TESTPRINT) { printf("[LValExpList->LValExpList LBRACKET Exp RBRACKET] \n"); }  }
