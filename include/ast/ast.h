@@ -9,13 +9,11 @@ enum OpType {
 #define OpcodeDefine(x, s) x,
 #include "common/common.def"
 };
-
 // 定义变量类型枚举
-// enum CastType {
-// #define CastTypeDefine(x, s) x,
-// #include "common/common.def"
-// };
-
+enum CastType {
+#define CastTypeDefine(x) x,
+#include "common/common.def"
+};
 // 定义节点类型枚举
 enum NodeType {
 #define TreeNodeDefine(x) x,
@@ -42,12 +40,40 @@ struct Node {
     }
     // 将节点转换为特定类型（不安全转换）
     template <typename T> T as_unchecked() { return static_cast<T>(this); }
+    
+    virtual ~Node() = default;
 };
 
 struct Exp :public Node {
-   constexpr static NodeType this_type = ND_Exp; 
-   NodePtr exp;
-   Exp(NodePtr exp) : Node(this_type), exp(exp) {}
+    constexpr static NodeType this_type = ND_Exp; 
+    NodePtr exp;
+    Exp(NodePtr exp) : Node(this_type), exp(exp) {}
+    std::vector<int> dimensions;  // 存储数组的维度信息，非数组表达式为空
+
+     // 判断表达式是否为整数表达式
+    virtual bool isIntExpr() const  { return false; }
+    // 判断表达式是否为数组表达式，基于维度信息
+    virtual bool isArrayExpr() const  { return !dimensions.empty(); }
+
+    // 获取数组的维度信息
+    const std::vector<int>& getArrayDimensions() const {
+        return dimensions;
+    }
+    // 设置表达式的数组维度信息
+    void setArrayDimensions(const std::vector<int>& dims) {
+        dimensions = dims;
+    }
+};
+
+struct IntExpr : public Exp {
+    IntExpr(NodePtr e = nullptr) : Exp(e) {}
+    
+    bool isIntExpr() const override { return true; }
+};
+struct ArrayExpr : public Exp {
+    ArrayExpr(NodePtr e = nullptr) : Exp(e) {}
+    
+    bool isArrayExpr() const override { return true; }
 };
 
 // 基本表达式节点
@@ -61,10 +87,10 @@ struct PrimaryExp : public Node {
 struct UnaryExp : public Node {
     constexpr static NodeType this_type = ND_UnaryExp;
     OpType op;
-    std::string ident_name;
-    NodePtr funcrparams;
-    NodePtr primaryexp;
-    NodePtr operand;
+    std::string ident_name = "";
+    NodePtr funcrparams = nullptr;
+    NodePtr primaryexp = nullptr;
+    NodePtr operand = nullptr;
     UnaryExp(NodePtr primaryexp) 
         : Node(this_type),primaryexp(primaryexp) {}
     UnaryExp(std::string ident_name, NodePtr funcrparams) 
@@ -89,7 +115,6 @@ struct FuncRParams : public Node {
     FuncRParams() : Node(this_type) {}
 };
 
-
 // 整数字面量节点
 struct IntegerLiteral : public Node {
     constexpr static NodeType this_type = ND_IntegerLiteral;
@@ -103,41 +128,12 @@ struct BType : public Node {
     BType(std::string type): Node(this_type), type(type) {}
 };
 
-// struct FuncType : public Node {
-//     constexpr static NodeType this_type = ND_FuncType;
-//     std::string type;
-//     FuncType(std::string type): Node(this_type), type(type) {}
-// };
-
 // 根节点
 struct CompUnit : public Node {
     constexpr static NodeType this_type = ND_CompUnit;
     std::vector<NodePtr> children;
     CompUnit() : Node(this_type) {}
 };
-
-// 声明
-struct InitVal;
-struct NumList;
-struct FuncFParam;
-struct FuncFParams;
-struct FuncDef;
-struct Block;
-struct BlockItem;
-struct BlockItemList;
-struct Stmt;
-struct Decl;
-struct VarDef;
-struct VarDecl;
-struct VarDefList;
-struct Exp;
-struct Lval;
-struct AssignStmt;
-struct ReturnStmt;
-struct IfStmt;
-struct WhileStmt;
-struct BreakStmt;
-struct ContinueStmt;
 
 // 声明
 struct Decl : public Node {
@@ -193,17 +189,28 @@ struct NumList : public Node {
     NumList() : Node(this_type) {}
 };
 
-// 函数实参
+// 函数形参
 struct FuncFParam : public Node {
     constexpr static NodeType this_type = ND_FuncFParam;
     std::string param_type;
     std::string param_name;
+    std::vector<int> dimensions; // 存储数组的每个维度的大小
+    bool is_array; // 标记是否为数组
     NumList* numlist;
-    FuncFParam(BType* paramtype, std::string name, NumList* list)
-        : Node(this_type), param_type(paramtype->type), param_name(name), numlist(list){}
 
+    FuncFParam(BType* paramtype, std::string name, NumList* list)
+        : Node(this_type), param_type(paramtype->type), param_name(name), numlist(list){
+        if (list != nullptr) {
+            // 直接使用 NumList 中的 children 初始化 dimensions
+            this->is_array = true;
+            this->dimensions = list->children; 
+        } else {
+            this->is_array = false;
+        }
+    }
 };
-// 函数实参列表
+
+// 函数形参列表
 struct FuncFParams : public Node {
     constexpr static NodeType this_type = ND_FuncFParams;
     std::vector<NodePtr> children;
@@ -306,49 +313,4 @@ struct LValExpList : public Node {
     LValExpList() : Node(this_type) {}
 };
 
-// print_expr是用于打印ast树的函数
-// 如：当我输入的文件内容如下时
-// int factorial(int n) {
-//     if (n == 0)
-//         return 1;
-//     return n * factorial(n - 1);
-// }
-// int main() {
-//     int n = getint();
-//     int result = factorial(n);
-//     putint(result);
-//     return 0;
-// }
-// 通过print_expr可以生成这样一个ast树：
-//  CompUnit
-//  ├─ FuncDef factorial 'int(int)'
-//  │  ├─ FuncFParam n 'int'
-//  │  └─ Block
-//  │     ├─ IfStmt
-//  │     │  ├─ RelationOp ==
-//  │     │  │  ├─ Ident n
-//  │     │  │  └─ IntConst 0
-//  │     │  └─ ReturnStmt
-//  │     │     └─ IntConst 1
-//  │     └─ ReturnStmt
-//  │        └─ BinaryOp *
-//  │           ├─ Ident n
-//  │           └─ Call factorial
-//  │              └─ BinaryOp -
-//  │                 ├─ Ident n
-//  │                 └─ IntConst 1
-//  └─ FuncDef main 'int()'
-//     └─ Block
-//        ├─ VarDecl
-//        │  └─ Ident n
-//        │     └─ Call getint
-//        ├─ VarDecl
-//        │  └─ Ident result
-//        │     └─ Call factorial
-//        │        └─ Ident n
-//        ├─ ExpStmt
-//        │  └─ Call putint
-//        │     └─ Ident result
-//        └─ ReturnStmt
-//           └─ IntConst 0
 void print_expr(NodePtr exp, std::string prefix = "") ;
