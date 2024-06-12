@@ -1,5 +1,7 @@
 #include "ir/type.h"
+#include "utils/casting.h"
 
+#include <stdexcept>
 
 Type Type::IntegerTy(Type::IntegerTyID);
 Type Type::UnitTy(Type::UnitTyID);
@@ -62,4 +64,12 @@ FunctionType *FunctionType::get(Type *Result, const std::vector<Type *> &Params)
 
 FunctionType *FunctionType::get(Type *Result) {
     return FunctionType::get(Result, {});
+}
+
+bool FunctionType::isValidReturnType(Type *RetTy) {
+    return !RetTy->isFunctionTy();
+}
+
+bool FunctionType::isValidArgumentType(Type *ArgTy) {
+    return ArgTy->isFirstClassType();
 }

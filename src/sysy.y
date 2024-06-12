@@ -80,7 +80,7 @@ FuncFParam  : BType IDENT                                   { $$ = new FuncFPara
             ;
 
 NumList     : NumList LBRACKET INTCONST RBRACKET        { $$ = $1; $$->as<NumList*>()->children.push_back($3); if (TESTPRINT) { printf("[NumList->NumList LBRACKET INTCONST RBRACKET] \n"); }}
-            | LBRACKET RBRACKET                         { $$ = new NumList(); if (TESTPRINT) { printf("[NumList->LBRACKET RBRACKET] \n"); }}
+            | LBRACKET RBRACKET                         { $$ = new NumList();$$->as<NumList*>()->children.push_back(-1); if (TESTPRINT) { printf("[NumList->LBRACKET RBRACKET] \n"); }}
             ;
 
 Block           : LBRACE RBRACE                         { $$ = new Block(nullptr);  if (TESTPRINT) { printf("[Block->LBRACE RBRACE] \n"); }}
@@ -110,8 +110,8 @@ Stmt            : LVal ASSIGN Exp SEMICOLON                     { $$ = new Stmt(
 Exp         : LOrExp                                { $$ = new Exp($1); if (TESTPRINT) { printf("[Exp->LOrExp] \n"); } }
             ;
 
-LVal        : IDENT                                 { $$ = new Lval($1,nullptr); if (TESTPRINT) { printf("[LVal->IDENT] \n"); }}
-            | IDENT LValExpList                     { $$ = new Lval($1,$2); if (TESTPRINT) { printf("[LVal->IDENT LValExpList] \n"); }}
+LVal        : IDENT                                 { $$ = new Lval($1,nullptr); if (1) { printf("[LVal->IDENT] %s\n\n",$1); }}
+            | IDENT LValExpList                     { $$ = new Lval($1,$2); if (1) { printf("[LVal->IDENT] %s\n\n",$1); }}
             ;
 
 LValExpList : LValExpList LBRACKET Exp RBRACKET     { $$ = $1; $$->as<LValExpList*>()->children.push_back($3); if (TESTPRINT) { printf("[LValExpList->LValExpList LBRACKET Exp RBRACKET] \n"); }  }

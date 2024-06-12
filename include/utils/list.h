@@ -20,10 +20,11 @@ public:
     using pointer = value_type *;
     using const_pointer = const value_type *;
     using difference_type = ptrdiff_t;
+    using iterator_category = std::bidirectional_iterator_tag;
 
     ListIterator() = default;
-    ListIterator(ListNode<T> *Node): NodePtr(Node) {}
-    ListIterator(const ListNode<T> *Node)
+    explicit ListIterator(ListNode<T> *Node): NodePtr(Node) {}
+    explicit ListIterator(const ListNode<T> *Node)
         : NodePtr(const_cast<ListNode<T> *>(Node)) { }
 
     /// Get the underlying Node
@@ -31,7 +32,7 @@ public:
 
     /// Allowing construct a const iterator from a nonconst iterator.
     template <bool RHSIsConst>
-    ListIterator(const ListIterator<T, IsReverse, RHSIsConst> &RHS,
+    explicit ListIterator(const ListIterator<T, IsReverse, RHSIsConst> &RHS,
                  std::enable_if_t<IsConst || !RHSIsConst, void *> = nullptr)
         : NodePtr(RHS.Node) {}
 
@@ -93,9 +94,12 @@ public:
     // workaround for no ListNodeImpl interface.
     friend class List<T>;
 
+    using iterator = ListIterator<T, false, false>;
+
 protected:
     ListNode *Prev = nullptr;
     ListNode *Next = nullptr;
+    // Other classes will be derived from intrusive list node by CRTP style.
     virtual ~ListNode() = default;
 
 public:
@@ -111,46 +115,33 @@ public:
     const_pointer getPrevNode() const { return Prev->getValuePtr(); }
 
 protected:
-    /// Private insertion & removal interface
-    void insertBefore(pointer Node) {
+    /// Private insertion & removal interface.
+    static iterator insert(iterator where, pointer Node) {
         if (Node) {
-            if (Prev) {
-                Prev->Next = Node;
+            if (where->Prev) {
+                where->Prev->Next = Node;
             }
-            Node->Next = this;
-            Node->Prev = Prev;
-            Prev = Node;
+            Node->Next = where.getNodePtr();
+            Node->Prev = where->Prev;
+            where->Prev = Node;
         }
+        return iterator(Node);
     }
 
-    void insertAfter(pointer Node) {
-        if (Node) {
-            if (Next) {
-                Next->Prev = Node;
-            }
-            Node->Next = Next;
-            Node->Prev = this;
-            Next = Node;
+    static void remove(reference Node) {
+        if (Node.Prev) {
+            Node.Prev->Next = Node.Next;
         }
+        if (Node.Next) {
+            Node.Next->Prev = Node.Prev;
+        }
+        Node.Prev = Node.Next = nullptr;
     }
 
-    void removeFromList() {
-        if (Prev) {
-            Prev->Next = Next;
-        }
-        if (Next) {
-            Next->Prev = Prev;
-        }
-        Prev = Next = nullptr;
-    }
-
-    void removeAndDispose() {
-        removeFromList();
-        delete this;
-    }
 };
 
-
+/// An intrusive double linked list with ownership.
+/// The list node class T should be derived from ListNode<T>.
 template <typename T>
 class List {
 public:
@@ -171,10 +162,14 @@ public:
 protected:
     ListNode<T> Sentinel;
 
+    void resetSentinel() {
+        Sentinel.Next = Sentinel.Prev = &Sentinel;
+    }
 public:
-    List() = default;
-    ~List() = default;
-
+    List() { resetSentinel();}
+    // Destruct all nodes in the list.
+    ~List() { clear(); }
+    // Intrusive list has the ownership of data, so we do not allow copy here.
     List(const List &) = delete;
     List &operator=(const List &) = delete;
 
@@ -193,12 +188,12 @@ public:
 
     /// Calculate the size in linear time.
     [[nodiscard]] size_type size() const {
-        return std::distance(begin(), end());
+        return std::distance(cbegin(), cend());
     }
 
     [[nodiscard]] bool empty() const {
-        return Sentinel.getNextNode() == nullptr &&
-               Sentinel.getPrevNode() == nullptr;
+        return Sentinel.getNextNode() == &Sentinel &&
+               Sentinel.getPrevNode() == &Sentinel;
     }
 
 
@@ -208,8 +203,7 @@ public:
     const_reference back() const { return *crbegin(); }
 
     iterator insert(iterator pos, pointer New) {
-        New->insertBefore(pos);
-        return iterator(New);
+        return ListNode<T>::insert(pos, New);
     }
 
     iterator insertAfter(iterator pos, pointer New) {
@@ -222,7 +216,7 @@ public:
     /// Remove a node from list.
     pointer remove(iterator &IT) {
         pointer Node = &*IT++;
-        Node->removeFromList();
+        ListNode<T>::remove(*Node);
         return Node;
     }
 
@@ -237,17 +231,21 @@ public:
     /// Remove a node from list and delete it, return the iterator forwarded.
     iterator erase(iterator IT) {
         iterator Node = IT++;
-        Node->removeAndDispose();
+        delete (remove(Node));
         return IT;
     }
 
     iterator erase(pointer IT) { return erase(iterator(IT)); }
     iterator erase(reference IT) { return erase(iterator(IT)); }
 
+    //===----------------------------------------------------------------------===
+    // Functionality derived from other functions defined above...
+    //
+
     /// Insert a node at front.
-    void push_front(reference Node) { insert(begin(), Node); }
+    void push_front(pointer Node) { insert(begin(), Node); }
     /// Insert a node at back.
-    void push_back(reference Node) { insert(end(), Node); }
+    void push_back(pointer Node) { insert(end(), Node); }
     /// Remove the node at front and delete it.
     void pop_front() {
         assert(!empty() && "pop_front() on a empty list!");
@@ -260,4 +258,11 @@ public:
         erase(--t);
     }
 
+    iterator erase(iterator first, iterator last) {
+        while (first != last)
+            first = erase(first);
+        return last;
+    }
+    
+    void clear() { erase(begin(), end()); }
 };

@@ -1,11 +1,7 @@
 #pragma once
 
-#include "utils/casting.h"
 
-#include <stdexcept>
-#include <unordered_set>
 #include <unordered_map>
-#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -13,6 +9,8 @@
 class PointerType;
 class FunctionType;
 
+/// Buffer class mamanges the memory of the derived types.
+/// It serves as a type context in single threaded environment.
 template <typename KeyTy, typename V>
 class Buffer {
 public:
@@ -20,7 +18,7 @@ public:
     ~Buffer() {
         for (auto &[Key, Val]: buffer) {
             Val->~V();
-            free(Val);
+            std::allocator<V>().deallocate(Val, 1);
         }
     }
 protected:
@@ -30,9 +28,9 @@ public:
     using iterator = typename BufferType::iterator;
     std::pair<iterator, bool> insert_as(const KeyTy &Key) {
         V *DT = nullptr;
-        auto Insertion = buffer.insert({Key, nullptr});
+        auto Insertion = buffer.insert(std::make_pair(Key, nullptr));
         if (Insertion.second) {
-            DT = (V *)malloc(sizeof(V));
+            DT = std::allocator<V>().allocate(1);
             Insertion.first->second = DT;
         } else {
             DT = Insertion.first->second;
@@ -69,7 +67,7 @@ protected:
     static thread_local Buffer<Type *, PointerType> PointerTypes;
 
     // Type context should be handled by context.
-    Type(TypeID tid) : ID(tid){}
+    explicit Type(TypeID tid) : ID(tid){}
     ~Type() = default;
 
 public:
@@ -79,13 +77,18 @@ public:
     bool isUnitTy() const { return getTypeID() == UnitTyID; }
     bool isPointerTy() const { return getTypeID() == PointerTyID; }
     bool isFunctionTy() const { return getTypeID() == FunctionTyID; }
+    /// Return true if the type is "first class", meaning it is a valid type for a real Value.
+    /// e.g. You cannot pass a function type or unit type as an argument to a function.
+    bool isFirstClassType() const {
+        return getTypeID() != FunctionTyID && getTypeID() != UnitTyID;
+    }
 
-    /// Get the primitive types
+    /// Get the primitive types by type id.
     static Type *getPrimitiveTy(unsigned tid);
     static Type *getIntegerTy();
     static Type *getUnitTy();
     /// Shorthand methods handling derived method.
-    /// e.g. getPointerElementType = try_as<PointerType>()->getElementType().
+    /// e.g. getPointerElementType = cast<PointerType>()->getElementType().
     Type *getPointerElementType() const;
     Type *getFunctionParamType (unsigned index) const;
     unsigned getFunctionNumParams () const;
@@ -128,6 +131,11 @@ public:
     
     /// Construct a `FunctionType` taking no parameters.
     static FunctionType *get(Type *Result);
+
+    /// Return true if the specified type is valid as a return type.
+    static bool isValidReturnType(Type *RetTy);
+    /// Return true if the specified type is valid as an argument type.
+    static bool isValidArgumentType(Type *ArgTy);
 
     static bool classof(const Type *Ty) {
         return Ty->getTypeID() == FunctionTyID;
