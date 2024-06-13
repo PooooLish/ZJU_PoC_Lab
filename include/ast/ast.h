@@ -172,7 +172,6 @@ struct VarDefList : public Node {
 struct VarDecl : public Node {
     constexpr static NodeType this_type = ND_VarDecl;
     std::string btype;
-    // std::vector<VarDef*> vardeflist;
     NodePtr vardeflist;
     VarDecl(BType* BType, NodePtr VarDefList)
         : Node(this_type), btype(BType->type), vardeflist(VarDefList) {}

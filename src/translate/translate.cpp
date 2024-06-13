@@ -38,14 +38,44 @@ void translate::traverse(NodePtr node) {
     switch (node->node_type) {
         case ND_CompUnit: {
             auto compUnit = node->as<CompUnit*>();
+
             for (auto child : compUnit->children) {
-                if (child->node_type == ND_Decl) {
-                    std::cout<< "decl" <<std::endl;
-                } else if (child->node_type == ND_FuncDef) {
-                    std::cout<< "funcdef" <<std::endl;
+                if (child->node_type == ND_Decl) { // 全局变量声明
+                    std::cout<< "decl" << std::endl;
+
+                    struct VarDecl* vardecl = child->as<Decl*>()->vardecl->as<VarDecl*>();
+                    std::string_view btype = vardecl->btype;
+                    struct VarDefList* vardeflist = vardecl->vardeflist->as<VarDefList*>();
+
+                    for (auto child_1 : vardeflist->children) {
+                        struct VarDef* vardef = child_1->as<VarDef*>();
+                        std::string var_name = vardef->var_name;
+                        NodePtr init_value = vardef->init_value;
+                        std::vector<int> array_indices = vardef->array_indices;
+                        std::cout<< "vardef_varname:"<< var_name << "array_indices:"<< array_indices.size() << std::endl;
+                        std::size_t NumElements = 1;
+                        for (auto child_2 : array_indices) {
+                            NumElements = NumElements * child_2;
+                        }
+
+                        if (array_indices.size() != 0) {
+                            Type *intType = Type::getIntegerTy();
+                            Type *pointerType = PointerType::get(intType);
+                            GlobalVariable *global_var = GlobalVariable::Create(pointerType, NumElements, false, var_name , &_module);
+                        } else {
+                            Type *intType = Type::getIntegerTy();
+                            GlobalVariable *global_var = GlobalVariable::Create(intType, NumElements, false, var_name , &_module);
+                        }
+
+                    }
+
+
+                } else if (child->node_type == ND_FuncDef) {  // 函数定义
+                    std::cout<< "funcdef" << std::endl;
+                    traverse(child);
                 }
 
-                traverse(child);
+
             }
             break;
         }
@@ -110,26 +140,63 @@ void translate::traverse(NodePtr node) {
 
             std::string_view return_type = temp->return_type;
             std::string_view func_name = temp->func_name;
-            NodePtr params = temp->params;
             NodePtr body = temp->body;
 
+
+            // Function 返回类型
             std::cout << return_type << "  " << func_name << std::endl;
-
             Type *returnType;
-
             if (return_type == "int") {
                 returnType = Type::getIntegerTy();
             } else if (return_type == "void") {
                 returnType = Type::getUnitTy();
             }
 
-            // 定义参数类型列表，每个参数都是 int
-            std::vector<Type *> paramTypes = { Type::getIntegerTy(), Type::getIntegerTy() };
+            // Function 形参
+
+            std::vector<Type *> paramTypes;
+            struct FuncFParams* params;
+            if (temp->params == nullptr){
+                std::cout << "no params" << std::endl;
+            } else {
+                std::cout << "have params" << std::endl;
+                params = temp->params->as<FuncFParams*>();
+                std::cout << params->children.size() << std::endl;
+
+                for (auto child :params->children) {
+                    struct FuncFParam* param= child->as<FuncFParam*>();
+                    std::string param_type = param->param_type;
+                    std::string param_name = param->param_name;
+                    std::vector<int> dimensions = param->dimensions; // 存储数组的每个维度的大小
+
+                    std::cout << "dimensions size" << dimensions.size() << std::endl;
+
+                    for (auto child_1 : dimensions){
+                        std::cout << child_1 << std::endl;
+                    }
+
+                    if (dimensions.size() != 0) {
+                        Type *intType = Type::getIntegerTy();
+                        Type *pointerType = PointerType::get(intType);
+                        paramTypes.push_back(pointerType);
+                    } else {
+                        Type *intType = Type::getIntegerTy();
+                        paramTypes.push_back(intType);
+                    }
+                }
+            }
+
 
             // 创建 FunctionType 实例
             FunctionType *funcType = FunctionType::get(returnType, paramTypes);
-
             Function *func = Function::Create(funcType, false, func_name , &_module);
+
+//            for (Function::arg_iterator it = func->arg_begin(); it != func->arg_end(); ++it) {
+//                Argument *arg = it;
+//                std::cout << "Argument name: " << arg->getName() << ", type: " << arg->getType()->getTypeID() << std::endl;
+//            }
+
+            traverse(body);
 
 //            std::cout << "Function return type ID: " << funcType->getReturnType()->getTypeID() << std::endl;
 //            std::cout << "Number of parameters: " << funcType->getNumParams() << std::endl;
