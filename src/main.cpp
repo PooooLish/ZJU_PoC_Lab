@@ -1,5 +1,5 @@
 #include "semanticAnalysis/semanticAnalysis.h"
-//#include "ast/ast.h"
+#include "translate/translate.h"
 #include <fmt/core.h>
 
 extern int yyparse();
@@ -18,9 +18,23 @@ int main(int argc, char **argv) {
     }
 
     if (root) {
-        print_expr(root,"");
-        fmt::print("\nSuccess\n");
+        fmt::print("Lexer and Parser success\n");
+    } else{
+        fmt::print("Lexer and Parser fail\n");
+        return 1;
     }
-    int result = semanticAnalysis(root);
-    return result;
+
+    int semantic_result = semanticAnalysis(root);
+    if (semantic_result == 0) {
+        fmt::print("Semantic analysis success\n");
+    } else{
+        fmt::print("Semantic analysis fail\n");
+        return 1;
+    }
+
+    // Create a translate instance and traverse the AST
+    translate translator(root);
+
+    //补充
+    return 0;
 }

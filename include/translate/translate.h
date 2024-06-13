@@ -18,13 +18,16 @@ public:
 
     const Module &getModule() const { return _module; }
 
+private:
     Module _module;
 
     void traverse(NodePtr node);
 
-    BasicBlock *translate_stmt(NodePtr stmt);
+    BasicBlock *translate_stmt(NodePtr stmt, Function *func, std::unordered_map<std::string_view, Value*> symbol_table);
 
-    Value *translate_expr(NodePtr expr);
+    BasicBlock *translate_stmt(NodePtr stmt, BasicBlock *current_bb, std::unordered_map<std::string_view, Value*> symbol_table);
+
+    Value *translate_expr(NodePtr expr, BasicBlock *current_bb, std::unordered_map<std::string_view, Value*> symbol_table);
 };
 
 

@@ -1,3 +1,6 @@
+#ifndef _AST_H_
+#define _AST_H_
+
 #include <cstdint>
 #include <type_traits>
 #include <string>
@@ -139,7 +142,7 @@ struct CompUnit : public Node {
 struct Decl : public Node {
     constexpr static NodeType this_type = ND_Decl;
     NodePtr vardecl;
-    Decl(NodePtr decl) : Node(this_type),vardecl(decl) {}
+    Decl(NodePtr decl) : Node(this_type), vardecl(decl) {}
 };
 
 struct InitVal : public Node {
@@ -314,3 +317,5 @@ struct LValExpList : public Node {
 };
 
 void print_expr(NodePtr exp, std::string prefix = "") ;
+
+#endif

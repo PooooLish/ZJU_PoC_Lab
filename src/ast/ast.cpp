@@ -24,13 +24,13 @@ void print_expr(NodePtr exp, std::string prefix) {
             std::cout << "CompUnit" << exp->node_type << std::endl;
             auto comp_unit = exp->as<CompUnit*>();
             for (auto child : comp_unit->children) {
-                print_expr(child,prefix + "  "); 
+                print_expr(child,prefix + "  ");
                 // std::cout << prefix.length() << std::endl;
             }
             break;
         }
         case ND_FuncDef: {
-            
+
             std::cout << prefix << "FuncDef " << exp->as<FuncDef*>()->func_name << " '" << exp->as<FuncDef*>()->return_type << "(";
             auto params = exp->as<FuncDef*>()->params;
             if (params != nullptr) {
@@ -185,7 +185,7 @@ void print_expr(NodePtr exp, std::string prefix) {
             print_expr(exp->as<BinaryExp*>()->rhs, prefix + "  ");
             break;
         }
-        case ND_UnaryExp: {        
+        case ND_UnaryExp: {
             // std::cout << "UnaryExp " << std::endl;
             if (exp->as<UnaryExp*>()->primaryexp != nullptr) {
                 print_expr(exp->as<UnaryExp*>()->primaryexp, prefix);
@@ -196,7 +196,7 @@ void print_expr(NodePtr exp, std::string prefix) {
                 break;
             }
 
-            break;    
+            break;
         }
 
         default:
