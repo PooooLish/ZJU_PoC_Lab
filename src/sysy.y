@@ -129,9 +129,9 @@ Number      : INTCONST                              { $$ = new IntegerLiteral($1
 UnaryExp    : PrimaryExp                            { $$ = new UnaryExp($1);  if (TESTPRINT) { printf("[UnaryExp->PrimaryExp] \n"); }}
             | IDENT LPAREN RPAREN                   { $$ = new UnaryExp($1,nullptr); if (TESTPRINT) { printf("[UnaryExp->IDENT LPAREN RPAREN] \n"); } }
             | IDENT LPAREN FuncRParams RPAREN       { $$ = new UnaryExp($1,$3); if (TESTPRINT) { printf("[UnaryExp->IDENT LPAREN FuncRParams RPAREN] \n"); }}
-            | ADD UnaryExp                          { $$ = new UnaryExp(OpType::OP_Pos, $2); if (TESTPRINT) { printf("[UnaryExp->ADD UnaryExp] \n"); }}
-            | SUB UnaryExp                          { $$ = new UnaryExp(OpType::OP_Neg, $2); if (TESTPRINT) { printf("[UnaryExp->SUB UnaryExp] \n"); }}
-            | NOT UnaryExp                          { $$ = new UnaryExp(OpType::OP_Lnot, $2); if (TESTPRINT) { printf("[UnaryExp->NOT UnaryExp] \n"); }}
+            | ADD UnaryExp                          { $$ = new UnaryExp(OpType::Pos, $2); if (TESTPRINT) { printf("[UnaryExp->ADD UnaryExp] \n"); }}
+            | SUB UnaryExp                          { $$ = new UnaryExp(OpType::Neg, $2); if (TESTPRINT) { printf("[UnaryExp->SUB UnaryExp] \n"); }}
+            | NOT UnaryExp                          { $$ = new UnaryExp(OpType::Lnot, $2); if (TESTPRINT) { printf("[UnaryExp->NOT UnaryExp] \n"); }}
             ;
 
 FuncRParams : FuncRParams COMMA Exp                  { $$ = $1; $$->as<FuncRParams*>()->children.push_back($3); if (TESTPRINT) { printf("[FuncRParams->FuncRParams COMMA Exp] \n"); }}
@@ -139,34 +139,34 @@ FuncRParams : FuncRParams COMMA Exp                  { $$ = $1; $$->as<FuncRPara
             ;
 
 MulExp      : UnaryExp                              { $$ = $1; if (TESTPRINT) { printf("[MulExp->UnaryExp] \n"); } }
-            | MulExp MUL UnaryExp                   { $$ = new BinaryExp(OpType::OP_Mul, $1, $3);  if (TESTPRINT) { printf("[MulExp->MulExp MUL UnaryExp] \n"); } }
-            | MulExp DIV UnaryExp                   { $$ = new BinaryExp(OpType::OP_Div, $1, $3);  if (TESTPRINT) { printf("[MulExp->MulExp DIV UnaryExp] \n"); } }
-            | MulExp MOD UnaryExp                   { $$ = new BinaryExp(OpType::OP_Mod, $1, $3);  if (TESTPRINT) { printf("[MulExp->MulExp MOD UnaryExp] \n"); } }
+            | MulExp MUL UnaryExp                   { $$ = new BinaryExp(OpType::Mul, $1, $3);  if (TESTPRINT) { printf("[MulExp->MulExp MUL UnaryExp] \n"); } }
+            | MulExp DIV UnaryExp                   { $$ = new BinaryExp(OpType::Div, $1, $3);  if (TESTPRINT) { printf("[MulExp->MulExp DIV UnaryExp] \n"); } }
+            | MulExp MOD UnaryExp                   { $$ = new BinaryExp(OpType::Mod, $1, $3);  if (TESTPRINT) { printf("[MulExp->MulExp MOD UnaryExp] \n"); } }
             ;
 
 AddExp      : MulExp                                { $$ = $1;   if (TESTPRINT) { printf("[AddExp->MulExp] \n"); }  }
-            | AddExp ADD MulExp                     { $$ = new BinaryExp(OpType::OP_Add, $1, $3);  if (TESTPRINT) { printf("[AddExp->AddExp ADD MulExp] \n"); } }
-            | AddExp SUB MulExp                     { $$ = new BinaryExp(OpType::OP_Sub, $1, $3);  if (TESTPRINT) { printf("[AddExp->AddExp SUB MulExp] \n"); } }
+            | AddExp ADD MulExp                     { $$ = new BinaryExp(OpType::Add, $1, $3);  if (TESTPRINT) { printf("[AddExp->AddExp ADD MulExp] \n"); } }
+            | AddExp SUB MulExp                     { $$ = new BinaryExp(OpType::Sub, $1, $3);  if (TESTPRINT) { printf("[AddExp->AddExp SUB MulExp] \n"); } }
             ;
 
 RelExp      : AddExp                                { $$ = $1;  if (TESTPRINT) { printf("[RelExp->AddExp] \n"); } }
-            | RelExp GT AddExp                      { $$ = new BinaryExp(OpType::OP_Gt, $1, $3); if (TESTPRINT) { printf("[RelExp->RelExp GT AddExp] \n"); } }
-            | RelExp GE AddExp                      { $$ = new BinaryExp(OpType::OP_Ge, $1, $3); if (TESTPRINT) { printf("[RelExp->RelExp GE AddExp] \n"); } }
-            | RelExp LT AddExp                      { $$ = new BinaryExp(OpType::OP_Lt, $1, $3); if (TESTPRINT) { printf("[RelExp->RelExp LT AddExp] \n"); } }
-            | RelExp LE AddExp                      { $$ = new BinaryExp(OpType::OP_Le, $1, $3); if (TESTPRINT) { printf("[RelExp->RelExp LE AddExp] \n"); } }
+            | RelExp GT AddExp                      { $$ = new BinaryExp(OpType::Gt, $1, $3); if (TESTPRINT) { printf("[RelExp->RelExp GT AddExp] \n"); } }
+            | RelExp GE AddExp                      { $$ = new BinaryExp(OpType::Ge, $1, $3); if (TESTPRINT) { printf("[RelExp->RelExp GE AddExp] \n"); } }
+            | RelExp LT AddExp                      { $$ = new BinaryExp(OpType::Lt, $1, $3); if (TESTPRINT) { printf("[RelExp->RelExp LT AddExp] \n"); } }
+            | RelExp LE AddExp                      { $$ = new BinaryExp(OpType::Le, $1, $3); if (TESTPRINT) { printf("[RelExp->RelExp LE AddExp] \n"); } }
             ;
 
 EqExp       : RelExp                                { $$ = $1; if (TESTPRINT) { printf("[EqExp->RelExp] \n"); } }
-            | EqExp EQ RelExp                       { $$ = new BinaryExp(OpType::OP_Eq, $1, $3); if (TESTPRINT) { printf("[EqExp->EqExp EQ RelExp] \n"); } }
-            | EqExp NEQ RelExp                      { $$ = new BinaryExp(OpType::OP_Ne, $1, $3); if (TESTPRINT) { printf("[EqExp->EqExp NEQ RelExp] \n"); } }
+            | EqExp EQ RelExp                       { $$ = new BinaryExp(OpType::Eq, $1, $3); if (TESTPRINT) { printf("[EqExp->EqExp EQ RelExp] \n"); } }
+            | EqExp NEQ RelExp                      { $$ = new BinaryExp(OpType::Ne, $1, $3); if (TESTPRINT) { printf("[EqExp->EqExp NEQ RelExp] \n"); } }
             ;
 
 LAndExp     : EqExp                                 { $$ = $1; if (TESTPRINT) { printf("[LAndExp->EqExp] \n"); } }
-            | LAndExp AND EqExp                     { $$ = new BinaryExp(OpType::OP_Land, $1, $3); if (TESTPRINT) { printf("[LAndExp->LAndExp AND EqExp] \n"); } }
+            | LAndExp AND EqExp                     { $$ = new BinaryExp(OpType::Land, $1, $3); if (TESTPRINT) { printf("[LAndExp->LAndExp AND EqExp] \n"); } }
             ;
 
 LOrExp      : LAndExp                               { $$ = $1; if (TESTPRINT) { printf("[LOrExp->LAndExp] \n"); }}
-            | LOrExp OR LAndExp                     { $$ = new BinaryExp(OpType::OP_Lor, $1, $3); if (TESTPRINT) { printf("[LOrExp->LAndExp OR LAndExp] \n"); }}
+            | LOrExp OR LAndExp                     { $$ = new BinaryExp(OpType::Lor, $1, $3); if (TESTPRINT) { printf("[LOrExp->LAndExp OR LAndExp] \n"); }}
             ;
 
 %%

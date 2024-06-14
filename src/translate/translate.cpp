@@ -277,17 +277,88 @@ Value *translate::translate_expr(NodePtr node, BasicBlock *current_bb, std::unor
 
     switch (node->node_type) {
         case ND_BinaryExp: {
+            auto binaryExp = node->as<BinaryExp*>();
+            Value *lhs = translate_expr(binaryExp->lhs, current_bb, symbol_table);
+            Value *rhs = translate_expr(binaryExp->rhs, current_bb, symbol_table);
+            // Mapping from binary operator type to the corresponding creation function
+            switch (binaryExp->op) {
+                case Add:
+                    value = BinaryInst::CreateAdd(lhs, rhs, lhs->getType(), current_bb);
+                    break;
+                case Sub:
+                    value = BinaryInst::CreateSub(lhs, rhs, lhs->getType(), current_bb);
+                    break;
+                case Mul:
+                    value = BinaryInst::CreateMul(lhs, rhs, lhs->getType(), current_bb);
+                    break;
+                case Div:
+                    value = BinaryInst::CreateDiv(lhs, rhs, lhs->getType(), current_bb);
+                    break;
+                case Mod:
+                    value = BinaryInst::CreateMod(lhs, rhs, lhs->getType(), current_bb);
+                    break;
+                case Eq:
+                    value = BinaryInst::CreateEq(lhs, rhs, lhs->getType(), current_bb);
+                    break;
+                case Ne:
+                    value = BinaryInst::CreateNe(lhs, rhs, lhs->getType(), current_bb);
+                    break;
+                case Lt:
+                    value = BinaryInst::CreateLt(lhs, rhs, lhs->getType(), current_bb);
+                    break;
+                case Gt:
+                    value = BinaryInst::CreateGt(lhs, rhs, lhs->getType(), current_bb);
+                    break;
+                case Le:
+                    value = BinaryInst::CreateLe(lhs, rhs, lhs->getType(), current_bb);
+                    break;
+                case Ge:
+                    value = BinaryInst::CreateGe(lhs, rhs, lhs->getType(), current_bb);
+                    break;
+                case And:
+                    value = BinaryInst::CreateAnd(lhs, rhs, lhs->getType(), current_bb);
+                    break;
+                case Or:
+                    value = BinaryInst::CreateOr(lhs, rhs, lhs->getType(), current_bb);
+                    break;
+                case Xor:
+                    value = BinaryInst::CreateXor(lhs, rhs, lhs->getType(), current_bb);
+                    break;
+                // Add other binary operators as needed
+                default:
+                    assert(false && "Unknown binary operator");
+            }
             break;
         }
         case ND_LVal: {
+            auto lval = node->as<Lval*>();
+            std::string_view name = lval->ident_name;
+            
+            if (lval->lvalexplist == nullptr) {
+                // 如果没有下标访问，直接从符号表中获取值
+                value = symbol_table[name];
+            } else {
+                // 有下标访问，需要计算数组元素地址
+                std::vector<Value*> indices;
+                
+                // 获取数组的基地址
+                Value *array = symbol_table[name];
+                
+                // 第一个索引是0，用于获取基地址
+                indices.push_back(ConstantInt::get(Type::getInt32Ty(context), 0));
+                
+                for (auto child : lval->lvalexplist->as<LValExpList*>()->children) {
+                    // 获取每个子节点的整数值
+                    Value *index = translate_expr(child, current_bb, symbol_table);
+                    indices.push_back(index);
+                }
+                
+                // 生成GEP指令
+                value = GetElementPtrInst::Create(array, indices, "", current_bb);
+            }
             break;
         }
-        case ND_LValExpList: {
-            break;
-        }
-        case ND_UnaryExp: {
-            break;
-        }
+
     }
 
     return value;
