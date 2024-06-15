@@ -5,6 +5,8 @@ build/
 .vscode/
 .idea/
 
+cmake-build-debug/
+
 # Clangd Cache
 .cache/
 
