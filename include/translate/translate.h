@@ -16,6 +16,8 @@ public:
 
     ~translate() = default;
 
+    std::unordered_map<std::string_view, Value* > symbol_table;
+
     const Module &getModule() const { return _module; }
 
 private:
