@@ -31,9 +31,6 @@ translate::translate(NodePtr root) {
 }
 
 void translate::traverse(NodePtr node) {
-    // Traverse the AST and translate each statement and expression
-    // This is a recursive function that visits each node in the AST
-    // For each node, you need to determine the type and call the appropriate translation function
 
     switch (node->node_type) {
 
@@ -78,57 +75,6 @@ void translate::traverse(NodePtr node) {
             break;
         }
 
-//        case ND_Block: {
-//            break;
-//        }
-//        case ND_BlockItemList: {
-//            break;
-//        }
-//        case ND_BlockItem: {
-//            break;
-//        }
-//        case ND_Stmt: {
-//            break;
-//        }
-//        case ND_IfStmt: {
-//            break;
-//        }
-//        case ND_ReturnStmt: {
-//            break;
-//        }
-//        case ND_WhileStmt: {
-//            break;
-//        }
-//        case ND_AssignStmt: {
-//            break;
-//        }
-//        case ND_Decl: {
-//            break;
-//        }
-//        case ND_InitVal: {
-//            break;
-//        }
-//        case ND_Exp: {
-//            break;
-//        }
-//        case ND_PrimaryExp: {
-//            break;
-//        }
-//        case ND_VarDecl: {
-//            break;
-//        }
-//        case ND_VarDefList: {
-//            break;
-//        }
-//        case ND_VarDef: {
-//            break;
-//        }
-//        case ND_FuncFParams: {
-//            break;
-//        }
-//        case ND_FuncFParam: {
-//            break;
-//        }
         case ND_FuncDef: {
             struct FuncDef* temp = node->as<FuncDef*>();
 
@@ -179,11 +125,12 @@ void translate::traverse(NodePtr node) {
 
             std::unordered_map<std::string_view, Value*> symbol_table;
 
-            BasicBlock* exit_bb = translate_stmt(body, entry_bb, &symbol_table);
+            BasicBlock* exit_bb = translate_stmt(body, entry_bb, symbol_table);
 
             if (exit_bb != nullptr) {
                 exit_bb->insertInto(func, nullptr);
             }
+
             break;
         }
 
@@ -195,66 +142,159 @@ void translate::traverse(NodePtr node) {
 }
 
 BasicBlock *translate::translate_stmt(NodePtr node, BasicBlock *current_bb, std::unordered_map<std::string_view, Value*> symbol_table) {
-    // Translate a statement node into an IR basic block
-    // The actual implementation depends on your statement node structure
-    // and the IR representation you are targeting
 
-    // Example (pseudocode):
     BasicBlock *BB = BasicBlock::Create();
-    // Translate the statement into IR instructions and add them to the block
-    // ...
 
     switch (node->node_type){
+
         case ND_Block: {
             struct BlockItemList* item_list = node->as<Block*>()->itemList->as<BlockItemList*>();
             BasicBlock *exit_bb = current_bb;
-            for (auto child : item_list->children) { // child为 block item ，Decl | Stmt
-                exit_bb = translate_stmt(child, exit_bb, symbol_table); // 循环child ，每个child在上一个child的返回基本块处继续
+            for (auto child : item_list->children) { // child为 block item
+                NodePtr item = child->as<BlockItem*>()->item; // item 为 decl | stmt
+                exit_bb = translate_stmt(item, exit_bb, symbol_table); // 循环child ，每个child在上一个child的返回基本块处继续
             }
             return exit_bb;
             break;
         }
 
-        case ND_BlockItem: {
-//            NodePtr
-            return translate_stmt(child, exit_bb, symbol_table);
-            break;
-        }
-
         case ND_Stmt: {
+            std::cout << "ND_Stmt" << std::endl;
+//            Stmt::= LVal "=" Exp ";"
+//                | Exp ";"
+//                | Block
+//                | "if" "(" Exp ")" Stmt ["else" Stmt]
+//                | "while" "(" Exp ")" Stmt
+//                | "break" ";"
+//                | "continue" ";"
+//                | "return" [Exp] ";";
+            NodePtr stmtPtr = node->as<Stmt*>()->stmtPtr;
+            BasicBlock *exit_bb = translate_stmt(stmtPtr, current_bb, symbol_table);
+            return exit_bb;
             break;
         }
-        case ND_IfStmt: {
+        case ND_AssignStmt: {
+            std::cout << "ND_AssignStmt" << std::endl;
+//            addr_value = lookup(sym_table, ID);
+//            result_value = translate_expr(Expr, sym_table, current_bb);
+//            create_store(result_value, addr_value, current_bb);
+            return current_bb;
             break;
         }
-        case ND_ReturnStmt: {
+        case ND_Exp: {
+            std::cout << "ND_Exp" << std::endl;
+            NodePtr exp = node->as<Exp*>()->exp;
+            translate_expr(exp, symbol_table, current_bb);
+            return current_bb;
+            break;
+        }
+        case ND_IfStmt: { // two conditions
+            std::cout << "ND_IfStmt" << std::endl;
+            NodePtr condition = node->as<IfStmt*>()->condition;
+            NodePtr then_stmt = node->as<IfStmt*>()->then_stmt;
+            NodePtr else_stmt = node->as<IfStmt*>()->else_stmt;
+
+            BasicBlock *exit_bb = BasicBlock::Create();
+
+            if (else_stmt == nullptr) { // If (Expr) Stmt
+
+                // exit_bb = new_label();
+                // true_bb = new_label();
+                // cond_value = translate_expr(Expr, sym_table, current_bb);
+                // create_branch(cond_value, true_bb, exit_bb, current_bb);
+                // true_exit_bb = translate_stmt(Stmt, sym_table, true_bb);
+                // create_jmp(exit_bb, true_exit_bb);
+
+            } else { // If (Expr) Stmt1 Else Stmt2
+
+                // exit_bb = new_label();
+                // true_bb = new_label();
+                // false_bb = new_label();
+                // cond_value = translate_expr(Expr, sym_table, current_bb);
+                // create_branch(cond, true_bb, false_bb, current_bb);
+                // true_exit_bb = translate_stmt(Stmt1, sym_table, true_bb);
+                // create_jmp(exit_bb, true_exit_bb);
+                // false_exit_bb = translate_stmt(Stmt2, sym_table, false_bb);
+                // create_jmp(exit_bb, false_exit_bb);
+
+            }
+            return exit_bb;
             break;
         }
 
         case ND_WhileStmt: {
+            std::cout << "ND_WhileStmt" << std::endl;
+
+            BasicBlock *exit_bb = BasicBlock::Create();
+
+            // entry_bb = new_label()
+            // body_bb = new_label()
+            // exit_bb = new_label()
+            // create_jump(entry_bb, current_bb);
+            // cond_value = translate_expr(Expr, sym_table, entry_bb);
+            // create_branch(cond, body_bb, exit_bb, entry_bb);
+            // body_exit_bb = translate_stmt(Stmt, sym_table, body_bb);
+            // create_jump(entry_bb, body_exit_bb);
+
+            return exit_bb;
             break;
         }
 
-        case ND_AssignStmt: {
+        case ND_BreakStmt: {
+            std::cout << "ND_BreakStmt" << std::endl;
+            return BB;
+            break;
+        }
+
+        case ND_ContinueStmt: {
+            std::cout << "ND_ContinueStmt" << std::endl;
+            return BB;
+            break;
+        }
+
+        case ND_ReturnStmt: {
+            std::cout << "ND_ReturnStmt" << std::endl;
+
+            NodePtr exp = node->as<ReturnStmt*>()->exp;
+
+            // return_bb = get_function_ret_bb();
+            // return_addr = get_function_ret_value_addr();
+            // return_value = translate_expr(Expr, sym_table, current_bb);
+            // create_store(return_value, return_addr, current_bb);
+            // create_jump(return_bb, current_bb);
+
+            return nullptr;
             break;
         }
 
         case ND_Decl: {
-//            VarDecl ID ：
 
-//            entry_bb = get_function_entry_bb();
-//            var_type = lookup_var_type(sym_table, ID);
-//            alloca_instr = create_alloca(var_type, 1, entry_bb);
-//            update(sym_table, ID, alloca_instr);
-//            return current_bb;
+            std::cout << "ND_Decl" << std::endl;
 
-//            VarDecl ID[size]
-//            entry_bb = get_function_entry_bb();
-//            var_type = lookup_var_type(sym_table, ID);
-//            alloca_instr = create_alloca(var_type, size, entry_bb);
-//            update(sym_table, ID, alloca_instr);
-//            return current_bb;
+            struct VarDecl* vardecl = node->as<Decl*>()->vardecl->as<VarDecl*>();
+            std::string_view btype = vardecl->btype;
+            struct VarDefList* vardeflist = vardecl->vardeflist->as<VarDefList*>();
+            for (auto child : vardeflist->children) {
+                struct VarDef *vardef = child->as<VarDef *>();
+                std::string var_name = vardef->var_name;
+                NodePtr init_value = vardef->init_value;
+                std::vector<int> array_indices = vardef->array_indices;
+                std::size_t NumElements = 1;
 
+                for (auto child_1: array_indices) {
+                    NumElements = NumElements * child_1;
+                }
+                std::cout << "vardef_varname:" << var_name << " num_element:" << NumElements << std::endl;
+
+                Function* parent_func = current_bb->getParent();
+                BasicBlock* entry_bb = &parent_func->getEntryBlock();
+
+                // var_type = lookup_var_type(sym_table, ID);
+                // alloca_instr = create_alloca(var_type, NumElements, entry_bb);
+                // update(sym_table, ID, alloca_instr);
+            }
+
+            return current_bb;
             break;
         }
 
