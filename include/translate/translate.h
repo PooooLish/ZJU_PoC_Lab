@@ -23,11 +23,11 @@ private:
 
     void traverse(NodePtr node);
 
-//    BasicBlock *translate_stmt(NodePtr stmt, Function *func, std::unordered_map<std::string_view, Value*> symbol_table);
+    std::unordered_map<std::string_view, Value*> global_symbol_map;
 
-    BasicBlock *translate_stmt(NodePtr node, BasicBlock *current_bb, std::unordered_map<std::string_view, Value*> symbol_table);
+    BasicBlock *translate_stmt(NodePtr node, BasicBlock *current_bb, std::unordered_map<std::string_view, Value*>* symbol_table);
 
-    Value *translate_expr(NodePtr node, BasicBlock *current_bb, std::unordered_map<std::string_view, Value*> symbol_table);
+    Value *translate_expr(NodePtr node, BasicBlock *current_bb, std::unordered_map<std::string_view, Value*>* symbol_table);
 };
 
 
