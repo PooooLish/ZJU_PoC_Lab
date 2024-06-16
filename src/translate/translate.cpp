@@ -370,36 +370,102 @@ Value *translate::translate_expr(NodePtr node, BasicBlock *current_bb, std::unor
             }
             break;
         }
+        case ND_UnaryExp: {
+            auto unaryExp = node->as<UnaryExp*>();
+            if(unaryExp->ident_name != "") {
+                // 函数调用
+                std::string_view name = unaryExp->ident_name;
+                std::vector<Value*> args;
+                if (unaryExp->funcrparams != nullptr) {
+                    auto funcrparams = unaryExp->funcrparams->as<FuncRParams*>();
+                    for (auto child : funcrparams->children) {
+                        Value *arg = translate_expr(child, current_bb, symbol_table);
+                        args.push_back(arg);
+                    }
+                }
+                Function *callee = _module.getFunction(name);
+                if (callee == nullptr) {
+                    std::cerr << "Unknown function referenced" << std::endl;
+                    return nullptr;
+                }
+                value = CallInst::Create(callee, args, current_bb);
+            } else if (unaryExp->operand != nullptr) {
+                // 一元操作符（-、!等）(unaryExp->op, unaryExp->operand
+                Value *operand = translate_expr(unaryExp->operand, current_bb, symbol_table);
+                switch (unaryExp->op) {
+                    case Neg:
+                        Value* zero_value = ConstantInt::Create(0);
+                        value = BinaryInst::CreateSub(zero_value, operand, operand->getType(), current_bb);
+                        break;
+                    case Pos:
+                        value = operand;
+                        break;
+                    // Add other unary operators as needed
+                    default:
+                        assert(false && "Unknown unary operator");
+                }
+                break;
+            } else if (unaryExp->primaryexp != nullptr) {
+                // primaryexp
+                value = translate_expr(unaryExp->primaryexp, current_bb, symbol_table);
+            }
+        }
+        case ND_PrimaryExp: {
+            auto primaryExp = node->as<PrimaryExp*>();
+            value = translate_expr(primaryExp->pri_exp, current_bb, symbol_table);
+            break;
+        }
+        case ND_IntegerLiteral: {
+            auto intLiteral = node->as<IntegerLiteral*>();
+            value = ConstantInt::Create(intLiteral->value);
+            break;
+        }
         case ND_LVal: {
             auto lval = node->as<Lval*>();
             std::string_view name = lval->ident_name;
-            
             if (lval->lvalexplist == nullptr) {
                 // 如果没有下标访问，直接从符号表中获取值
                 value = symbol_table[name];
-            } else {
-                // 有下标访问，需要计算数组元素地址
-                std::vector<Value*> indices;
-                
-                // 获取数组的基地址
-                Value *array = symbol_table[name];
-                
-                // 第一个索引是0，用于获取基地址
-                indices.push_back(ConstantInt::get(Type::getInt32Ty(context), 0));
-                
-                for (auto child : lval->lvalexplist->as<LValExpList*>()->children) {
-                    // 获取每个子节点的整数值
-                    Value *index = translate_expr(child, current_bb, symbol_table);
-                    indices.push_back(index);
-                }
-                
-                // 生成GEP指令
-                value = GetElementPtrInst::Create(array, indices, "", current_bb);
-            }
+            } //else {
+            //     // 有下标访问，需要计算数组元素地址
+            //     // element type
+            //     array_type = lookup_var_type(sym_table, ID);
+            //     elem_type = get_elem_type(array_type);
+            //     // address of the first element in the array,
+            //     // which is actually the stack address represented
+            //     // by a 'alloca' instruction or a global variable.
+            //     addr_value = lookup(sym_table, ID);
+            //     // indices
+            //     indices = [];
+            //     for idx in Idx1..IdxN:
+            //     indices += translate_expr(idx, sym_table, current_bb);
+            //     // bounds
+            //     bounds = get_bounds(array_type);
+            //     return create_load(create_offset(
+            //     elem_type,
+            //     addr_value,
+            //     indices,
+            //     bounds
+            //     ));
+            //     std::vector<Value*> indices;
+            //     // 获取数组的基地址
+            //     Value *array = symbol_table[name];
+            //     for (auto child : lval->lvalexplist->as<LValExpList*>()->children) {
+            //         // 获取每个子节点的整数值
+            //         Value *index = translate_expr(child, current_bb, symbol_table);
+            //         indices.push_back(index);
+            //     }
+            //     Value *offset = OffsetInst::Create(array->getType(),array, indices, current_bb);
+            //     value = LoadInst::Create(array, indices, current_bb);
+            //}
+            break;
+        }
+        case ND_Exp: {
+            auto exp = node->as<Exp*>();
+            value = translate_expr(exp->exp, current_bb, symbol_table);
             break;
         }
 
     }
-
     return value;
 }
