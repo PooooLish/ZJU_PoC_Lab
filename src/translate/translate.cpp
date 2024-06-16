@@ -22,7 +22,7 @@ translate::translate(NodePtr root) {
     }
 
     // Print the module content to the file
-    _module.print(outFile, true);  // Assuming `print` method accepts an output stream and a boolean flag
+    _module.print(outFile, false);  // Assuming `print` method accepts an output stream and a boolean flag
 
     // Close the file
     outFile.close();
@@ -50,7 +50,6 @@ void translate::traverse(NodePtr node) {
                         std::string var_name = vardef->var_name;
                         NodePtr init_value = vardef->init_value;
                         std::vector<int> array_indices = vardef->array_indices;
-                        std::cout<< "vardef_varname:"<< var_name << "array_indices:"<< array_indices.size() << std::endl;
                         std::size_t NumElements = 1;
 
                         for (auto child_2 : array_indices) {
@@ -72,6 +71,7 @@ void translate::traverse(NodePtr node) {
                     traverse(child);
                 }
             }
+            std::cout<< "init finish" << std::endl;
             break;
         }
 
@@ -122,14 +122,19 @@ void translate::traverse(NodePtr node) {
             Function *func = Function::Create(funcType, false, func_name , &_module);
 
             BasicBlock* entry_bb = BasicBlock::Create(func, nullptr);
+            BasicBlock* return_bb = BasicBlock::Create(func, nullptr);
 
             std::unordered_map<std::string_view, Value*> symbol_table;
 
-            BasicBlock* exit_bb = translate_stmt(body, entry_bb, symbol_table);
+            BasicBlock* exit_bb = translate_stmt(body, entry_bb, &symbol_table);
 
-            if (exit_bb != nullptr) {
-                exit_bb->insertInto(func, nullptr);
-            }
+//            for (const auto& entry : symbol_table) {
+//                std::cout << "Key: " << entry.first << std::endl;
+//            }
+
+//            if (exit_bb != nullptr) {
+//                exit_bb->insertInto(func, nullptr);
+//            }
 
             break;
         }
@@ -141,7 +146,7 @@ void translate::traverse(NodePtr node) {
     return;
 }
 
-BasicBlock *translate::translate_stmt(NodePtr node, BasicBlock *current_bb, std::unordered_map<std::string_view, Value*> symbol_table) {
+BasicBlock *translate::translate_stmt(NodePtr node, BasicBlock *current_bb, std::unordered_map<std::string_view, Value*>* symbol_table) {
 
     BasicBlock *BB = BasicBlock::Create();
 
@@ -152,7 +157,8 @@ BasicBlock *translate::translate_stmt(NodePtr node, BasicBlock *current_bb, std:
             BasicBlock *exit_bb = current_bb;
             for (auto child : item_list->children) { // child为 block item
                 NodePtr item = child->as<BlockItem*>()->item; // item 为 decl | stmt
-                exit_bb = translate_stmt(item, exit_bb, symbol_table); // 循环child ，每个child在上一个child的返回基本块处继续
+                exit_bb = translate_stmt(item, current_bb, symbol_table); // 循环child ，每个child在上一个child的返回基本块处继续
+                if (exit_bb == nullptr) break;
             }
             return exit_bb;
             break;
@@ -160,31 +166,37 @@ BasicBlock *translate::translate_stmt(NodePtr node, BasicBlock *current_bb, std:
 
         case ND_Stmt: {
             std::cout << "ND_Stmt" << std::endl;
-//            Stmt::= LVal "=" Exp ";"
-//                | Exp ";"
-//                | Block
-//                | "if" "(" Exp ")" Stmt ["else" Stmt]
-//                | "while" "(" Exp ")" Stmt
-//                | "break" ";"
-//                | "continue" ";"
-//                | "return" [Exp] ";";
             NodePtr stmtPtr = node->as<Stmt*>()->stmtPtr;
             BasicBlock *exit_bb = translate_stmt(stmtPtr, current_bb, symbol_table);
+            std::cout << "ND_Stmt finish" << std::endl;
             return exit_bb;
             break;
         }
+
         case ND_AssignStmt: {
+            // addr_value = lookup(sym_table, ID);
+            // result_value = translate_expr(Expr, sym_table, current_bb);
+            // create_store(result_value, addr_value, current_bb);
+
             std::cout << "ND_AssignStmt" << std::endl;
-//            addr_value = lookup(sym_table, ID);
-//            result_value = translate_expr(Expr, sym_table, current_bb);
-//            create_store(result_value, addr_value, current_bb);
+
+             NodePtr lhs = node->as<AssignStmt*>()->lhs;
+             NodePtr rhs = node->as<AssignStmt*>()->rhs;
+
+            // Value *addr_value;
+            // Value *result_value = translate_expr(rhs ,current_bb , symbol_table );
+            // StoreInst *store_inst= StoreInst::Create(result_value, addr_value, current_bb);
+            // symbol_table[var_name] = store_inst;
+
+            std::cout << "ND_AssignStmt finish" << std::endl;
             return current_bb;
             break;
         }
         case ND_Exp: {
             std::cout << "ND_Exp" << std::endl;
             NodePtr exp = node->as<Exp*>()->exp;
-            translate_expr(exp, symbol_table, current_bb);
+            translate_expr(exp, current_bb, symbol_table);
+            std::cout << "ND_Exp finish" << std::endl;
             return current_bb;
             break;
         }
@@ -194,30 +206,28 @@ BasicBlock *translate::translate_stmt(NodePtr node, BasicBlock *current_bb, std:
             NodePtr then_stmt = node->as<IfStmt*>()->then_stmt;
             NodePtr else_stmt = node->as<IfStmt*>()->else_stmt;
 
-            BasicBlock *exit_bb = BasicBlock::Create();
+            Function *parent_func = current_bb->getParent();
+            BasicBlock *exit_bb = BasicBlock::Create(parent_func, &(*parent_func->end()));
+            BasicBlock *true_bb = BasicBlock::Create(parent_func, &(*parent_func->end()));
+            BasicBlock *false_bb = BasicBlock::Create(parent_func, &(*parent_func->end()));
+            Value *cond_value = translate_expr(condition , current_bb, symbol_table);
 
             if (else_stmt == nullptr) { // If (Expr) Stmt
 
-                // exit_bb = new_label();
-                // true_bb = new_label();
-                // cond_value = translate_expr(Expr, sym_table, current_bb);
-                // create_branch(cond_value, true_bb, exit_bb, current_bb);
-                // true_exit_bb = translate_stmt(Stmt, sym_table, true_bb);
-                // create_jmp(exit_bb, true_exit_bb);
+                BranchInst::Create(true_bb, exit_bb, cond_value, current_bb);
+                BasicBlock* true_exit_bb = translate_stmt(then_stmt, true_bb, symbol_table);
+                JumpInst::Create(exit_bb,true_exit_bb);
 
             } else { // If (Expr) Stmt1 Else Stmt2
 
-                // exit_bb = new_label();
-                // true_bb = new_label();
-                // false_bb = new_label();
-                // cond_value = translate_expr(Expr, sym_table, current_bb);
-                // create_branch(cond, true_bb, false_bb, current_bb);
-                // true_exit_bb = translate_stmt(Stmt1, sym_table, true_bb);
-                // create_jmp(exit_bb, true_exit_bb);
-                // false_exit_bb = translate_stmt(Stmt2, sym_table, false_bb);
-                // create_jmp(exit_bb, false_exit_bb);
+                BranchInst::Create(true_bb, false_bb, cond_value, current_bb);
+                BasicBlock* true_exit_bb = translate_stmt(then_stmt, true_bb, symbol_table);
+                JumpInst::Create(exit_bb,true_exit_bb);
+                BasicBlock* false_exit_bb = translate_stmt(else_stmt, false_bb, symbol_table);
+                JumpInst::Create(exit_bb,false_exit_bb);
 
             }
+            std::cout << "ND_ReturnStmt finish" << std::endl;
             return exit_bb;
             break;
         }
@@ -225,16 +235,20 @@ BasicBlock *translate::translate_stmt(NodePtr node, BasicBlock *current_bb, std:
         case ND_WhileStmt: {
             std::cout << "ND_WhileStmt" << std::endl;
 
-            BasicBlock *exit_bb = BasicBlock::Create();
+            Function *parent_func = current_bb->getParent();
 
-            // entry_bb = new_label()
-            // body_bb = new_label()
-            // exit_bb = new_label()
-            // create_jump(entry_bb, current_bb);
-            // cond_value = translate_expr(Expr, sym_table, entry_bb);
-            // create_branch(cond, body_bb, exit_bb, entry_bb);
-            // body_exit_bb = translate_stmt(Stmt, sym_table, body_bb);
-            // create_jump(entry_bb, body_exit_bb);
+            NodePtr condition = node->as<WhileStmt*>()->condition;
+            NodePtr body = node->as<WhileStmt*>()->body;
+
+            BasicBlock *entry_bb = BasicBlock::Create(parent_func, &(*parent_func->end()));
+            BasicBlock *body_bb = BasicBlock::Create(parent_func, &(*parent_func->end()));
+            BasicBlock *exit_bb = BasicBlock::Create(parent_func, &(*parent_func->end()));
+
+            JumpInst::Create(entry_bb,current_bb);
+            Value *cond_value = translate_expr(condition , entry_bb, symbol_table);
+            BranchInst::Create(body_bb, exit_bb, cond_value, entry_bb);
+            BasicBlock* body_exit_bb = translate_stmt(body, body_bb, symbol_table);
+            JumpInst::Create(entry_bb,body_exit_bb);
 
             return exit_bb;
             break;
@@ -242,12 +256,14 @@ BasicBlock *translate::translate_stmt(NodePtr node, BasicBlock *current_bb, std:
 
         case ND_BreakStmt: {
             std::cout << "ND_BreakStmt" << std::endl;
+            std::cout << "ND_BreakStmt finish" << std::endl;
             return BB;
             break;
         }
 
         case ND_ContinueStmt: {
             std::cout << "ND_ContinueStmt" << std::endl;
+            std::cout << "ND_ContinueStmt finish" << std::endl;
             return BB;
             break;
         }
@@ -255,13 +271,23 @@ BasicBlock *translate::translate_stmt(NodePtr node, BasicBlock *current_bb, std:
         case ND_ReturnStmt: {
             std::cout << "ND_ReturnStmt" << std::endl;
 
-            NodePtr exp = node->as<ReturnStmt*>()->exp;
+//            NodePtr exp = node->as<ReturnStmt*>()->exp;
+//
+//            Function* parent_func = current_bb->getParent();
+//            BasicBlock* return_bb = &(*parent_func->end());
+//
+//            if (exp != nullptr){
+//                Value* return_value = translate_expr(exp , current_bb, symbol_table);
+//            }
+//
+//            JumpInst::Create(return_bb,current_bb);
 
-            // return_bb = get_function_ret_bb();
             // return_addr = get_function_ret_value_addr();
             // return_value = translate_expr(Expr, sym_table, current_bb);
             // create_store(return_value, return_addr, current_bb);
             // create_jump(return_bb, current_bb);
+
+            std::cout << "ND_ReturnStmt finish" << std::endl;
 
             return nullptr;
             break;
@@ -274,6 +300,8 @@ BasicBlock *translate::translate_stmt(NodePtr node, BasicBlock *current_bb, std:
             struct VarDecl* vardecl = node->as<Decl*>()->vardecl->as<VarDecl*>();
             std::string_view btype = vardecl->btype;
             struct VarDefList* vardeflist = vardecl->vardeflist->as<VarDefList*>();
+            Type *intType = Type::getIntegerTy(); // change by btype
+
             for (auto child : vardeflist->children) {
                 struct VarDef *vardef = child->as<VarDef *>();
                 std::string var_name = vardef->var_name;
@@ -288,12 +316,24 @@ BasicBlock *translate::translate_stmt(NodePtr node, BasicBlock *current_bb, std:
 
                 Function* parent_func = current_bb->getParent();
                 BasicBlock* entry_bb = &parent_func->getEntryBlock();
+                AllocaInst *alloc_inst;
 
-                // var_type = lookup_var_type(sym_table, ID);
-                // alloca_instr = create_alloca(var_type, NumElements, entry_bb);
-                // update(sym_table, ID, alloca_instr);
+                if (array_indices.size() != 0) {
+                    auto* type = PointerType::get(intType);
+                    alloc_inst = AllocaInst::Create(type, NumElements, entry_bb);
+                } else {
+                    alloc_inst = AllocaInst::Create(intType, NumElements , entry_bb);
+                }
+
+                (*symbol_table)[var_name] = alloc_inst;
+
+                if (init_value != nullptr) {
+                    Value *value = translate_expr(init_value, current_bb, symbol_table);
+//                    StoreInst *store_inst= StoreInst::Create(value, alloc_inst, current_bb);
+//                    symbol_table[var_name] = store_inst;
+                }
             }
-
+            std::cout << "ND_Decl finish" << std::endl;
             return current_bb;
             break;
         }
@@ -305,7 +345,7 @@ BasicBlock *translate::translate_stmt(NodePtr node, BasicBlock *current_bb, std:
     return BB;
 }
 
-Value *translate::translate_expr(NodePtr node, BasicBlock *current_bb, std::unordered_map<std::string_view, Value*> symbol_table) {
+Value *translate::translate_expr(NodePtr node, BasicBlock *current_bb, std::unordered_map<std::string_view, Value*>*symbol_table) {
     // Translate an expression node into an IR value
     // The actual implementation depends on your expression node structure
     // and the IR representation you are targeting
@@ -364,7 +404,7 @@ Value *translate::translate_expr(NodePtr node, BasicBlock *current_bb, std::unor
                 case Xor:
                     value = BinaryInst::CreateXor(lhs, rhs, lhs->getType(), current_bb);
                     break;
-                // Add other binary operators as needed
+                    // Add other binary operators as needed
                 default:
                     assert(false && "Unknown binary operator");
             }
@@ -397,12 +437,21 @@ Value *translate::translate_expr(NodePtr node, BasicBlock *current_bb, std::unor
                         Value* zero_value = ConstantInt::Create(0);
                         value = BinaryInst::CreateSub(zero_value, operand, operand->getType(), current_bb);
                         break;
+<<<<<<< HEAD
                     case Pos:
                         value = operand;
                         break;
                     // Add other unary operators as needed
                     default:
                         assert(false && "Unknown unary operator");
+=======
+//                    case Pos:
+//                        value = operand;
+//                        break;
+                        // Add other unary operators as needed
+//                    default:
+//                        assert(false && "Unknown unary operator");
+>>>>>>> e4380d1e551a532255a6cfdc1983960f6433cf50
                 }
                 break;
             } else if (unaryExp->primaryexp != nullptr) {
@@ -425,6 +474,7 @@ Value *translate::translate_expr(NodePtr node, BasicBlock *current_bb, std::unor
             std::string_view name = lval->ident_name;
             if (lval->lvalexplist == nullptr) {
                 // 如果没有下标访问，直接从符号表中获取值
+<<<<<<< HEAD
                 value = symbol_table[name];
             } //else {
             //     // 有下标访问，需要计算数组元素地址
@@ -463,9 +513,60 @@ Value *translate::translate_expr(NodePtr node, BasicBlock *current_bb, std::unor
         case ND_Exp: {
             auto exp = node->as<Exp*>();
             value = translate_expr(exp->exp, current_bb, symbol_table);
+=======
+                auto it = symbol_table->find(name);
+                if (it != symbol_table->end()) {
+                    value = it->second;
+                    // 使用 var_value 执行后续操作
+                }
+                // } else {
+                //     // 有下标访问，需要计算数组元素地址
+                //     // element type
+                //     array_type = lookup_var_type(sym_table, ID);
+                //     elem_type = get_elem_type(array_type);
+                //     // address of the first element in the array,
+                //     // which is actually the stack address represented
+                //     // by a 'alloca' instruction or a global variable.
+                //     addr_value = lookup(sym_table, ID);
+                //     // indices
+                //     indices = [];
+                //     for idx in Idx1..IdxN:
+                //     indices += translate_expr(idx, sym_table, current_bb);
+                //     // bounds
+                //     bounds = get_bounds(array_type);
+                //     return create_load(create_offset(
+                //     elem_type,
+                //     addr_value,
+                //     indices,
+                //     bounds
+                //     ));
+                //     std::vector<Value*> indices;
+                //     // 获取数组的基地址
+                //     Value *array = symbol_table[name];
+                //     for (auto child : lval->lvalexplist->as<LValExpList*>()->children) {
+                //         // 获取每个子节点的整数值
+                //         Value *index = translate_expr(child, current_bb, symbol_table);
+                //         indices.push_back(index);
+                //     }
+                //     Value *offset = OffsetInst::Create(array->getType(),array, indices, current_bb);
+                //     value = LoadInst::Create(array, indices, current_bb);
+            }
+>>>>>>> e4380d1e551a532255a6cfdc1983960f6433cf50
+            break;
+        }
+
+        case ND_Exp: {
+            auto exp = node->as<Exp*>();
+            value = translate_expr(exp->exp, current_bb, symbol_table);
             break;
         }
 
     }
+<<<<<<< HEAD
     return value;
 }
+=======
+
+            return value;
+    }
+>>>>>>> e4380d1e551a532255a6cfdc1983960f6433cf50
