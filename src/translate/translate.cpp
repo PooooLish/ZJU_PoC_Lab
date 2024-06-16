@@ -180,13 +180,22 @@ BasicBlock *translate::translate_stmt(NodePtr node, BasicBlock *current_bb, std:
 
             std::cout << "ND_AssignStmt" << std::endl;
 
-             NodePtr lhs = node->as<AssignStmt*>()->lhs;
-             NodePtr rhs = node->as<AssignStmt*>()->rhs;
-
-            // Value *addr_value;
-            // Value *result_value = translate_expr(rhs ,current_bb , symbol_table );
-            // StoreInst *store_inst= StoreInst::Create(result_value, addr_value, current_bb);
-            // symbol_table[var_name] = store_inst;
+            NodePtr lhs = node->as<AssignStmt*>()->lhs;
+            NodePtr rhs = node->as<AssignStmt*>()->rhs;
+            Value *addr_value;
+            if(symbol_table->find(lhs->as<Lval*>()->ident_name)!=symbol_table->end()){
+                std::cout << "find" << std::endl;
+                addr_value = symbol_table->find(lhs->as<Lval*>()->ident_name)->second;
+            } else {
+                std::cout << "not find" << std::endl;
+                //symbol_table->insert({lhs->as<Lval*>()->ident_name, new AllocaInst(Type::getIntegerTy(), 1, current_bb)});
+            }
+            Value *result_value = translate_expr(rhs ,current_bb , symbol_table );
+            std::cout << "ND_AssignStmt finish" << std::endl;
+            StoreInst *store_inst= StoreInst::Create(result_value, addr_value, current_bb);
+            std::cout << "ND_AssignStmt finish3" << std::endl;
+            std::string var_name = lhs->as<Lval*>()->ident_name;
+            (*symbol_table)[var_name] = store_inst;
 
             std::cout << "ND_AssignStmt finish" << std::endl;
             return current_bb;
@@ -326,7 +335,7 @@ BasicBlock *translate::translate_stmt(NodePtr node, BasicBlock *current_bb, std:
                 }
 
                 (*symbol_table)[var_name] = alloc_inst;
-
+                std::cout<< (*symbol_table)[var_name] << std::endl;
                 if (init_value != nullptr) {
                     Value *value = translate_expr(init_value, current_bb, symbol_table);
 //                    StoreInst *store_inst= StoreInst::Create(value, alloc_inst, current_bb);
@@ -432,32 +441,15 @@ Value *translate::translate_expr(NodePtr node, BasicBlock *current_bb, std::unor
             } else if (unaryExp->operand != nullptr) {
                 // 一元操作符（-、!等）(unaryExp->op, unaryExp->operand
                 Value *operand = translate_expr(unaryExp->operand, current_bb, symbol_table);
-                switch (unaryExp->op) {
-                    case Neg:
-                        Value* zero_value = ConstantInt::Create(0);
-                        value = BinaryInst::CreateSub(zero_value, operand, operand->getType(), current_bb);
-                        break;
-<<<<<<< HEAD
-                    case Pos:
-                        value = operand;
-                        break;
-                    // Add other unary operators as needed
-                    default:
-                        assert(false && "Unknown unary operator");
-=======
-//                    case Pos:
-//                        value = operand;
-//                        break;
-                        // Add other unary operators as needed
-//                    default:
-//                        assert(false && "Unknown unary operator");
->>>>>>> e4380d1e551a532255a6cfdc1983960f6433cf50
+                if (unaryExp->op==Neg) {
+                    Value* zero_value = ConstantInt::Create(0);
+                    value = BinaryInst::CreateSub(zero_value, operand, operand->getType(), current_bb);
                 }
-                break;
             } else if (unaryExp->primaryexp != nullptr) {
                 // primaryexp
                 value = translate_expr(unaryExp->primaryexp, current_bb, symbol_table);
             }
+            break;
         }
         case ND_PrimaryExp: {
             auto primaryExp = node->as<PrimaryExp*>();
@@ -474,46 +466,6 @@ Value *translate::translate_expr(NodePtr node, BasicBlock *current_bb, std::unor
             std::string_view name = lval->ident_name;
             if (lval->lvalexplist == nullptr) {
                 // 如果没有下标访问，直接从符号表中获取值
-<<<<<<< HEAD
-                value = symbol_table[name];
-            } //else {
-            //     // 有下标访问，需要计算数组元素地址
-            //     // element type
-            //     array_type = lookup_var_type(sym_table, ID);
-            //     elem_type = get_elem_type(array_type);
-            //     // address of the first element in the array,
-            //     // which is actually the stack address represented
-            //     // by a 'alloca' instruction or a global variable.
-            //     addr_value = lookup(sym_table, ID);
-            //     // indices
-            //     indices = [];
-            //     for idx in Idx1..IdxN:
-            //     indices += translate_expr(idx, sym_table, current_bb);
-            //     // bounds
-            //     bounds = get_bounds(array_type);
-            //     return create_load(create_offset(
-            //     elem_type,
-            //     addr_value,
-            //     indices,
-            //     bounds
-            //     ));
-            //     std::vector<Value*> indices;
-            //     // 获取数组的基地址
-            //     Value *array = symbol_table[name];
-            //     for (auto child : lval->lvalexplist->as<LValExpList*>()->children) {
-            //         // 获取每个子节点的整数值
-            //         Value *index = translate_expr(child, current_bb, symbol_table);
-            //         indices.push_back(index);
-            //     }
-            //     Value *offset = OffsetInst::Create(array->getType(),array, indices, current_bb);
-            //     value = LoadInst::Create(array, indices, current_bb);
-            //}
-            break;
-        }
-        case ND_Exp: {
-            auto exp = node->as<Exp*>();
-            value = translate_expr(exp->exp, current_bb, symbol_table);
-=======
                 auto it = symbol_table->find(name);
                 if (it != symbol_table->end()) {
                     value = it->second;
@@ -551,22 +503,16 @@ Value *translate::translate_expr(NodePtr node, BasicBlock *current_bb, std::unor
                 //     Value *offset = OffsetInst::Create(array->getType(),array, indices, current_bb);
                 //     value = LoadInst::Create(array, indices, current_bb);
             }
->>>>>>> e4380d1e551a532255a6cfdc1983960f6433cf50
             break;
         }
 
         case ND_Exp: {
             auto exp = node->as<Exp*>();
             value = translate_expr(exp->exp, current_bb, symbol_table);
+            std::cout << "ND_AssignStmt finish2" << std::endl;
             break;
         }
 
     }
-<<<<<<< HEAD
     return value;
 }
-=======
-
-            return value;
-    }
->>>>>>> e4380d1e551a532255a6cfdc1983960f6433cf50
