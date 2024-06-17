@@ -7,26 +7,33 @@
 #include <unordered_map>
 #include <vector>
 #include <optional>
-#include <string_view>
+#include <string>
+
+using SymbolTable = std::unordered_map<std::string, Value*>;
+
+void translate::addValue(std::unordered_map<std::string, Value*>* symbol_table, std::string name, Value* value) {
+    (*symbol_table)[name] = value;
+    std::cout << "Add value: " << name << std::endl;
+}
+
+Value* translate::getValue(const std::unordered_map<std::string, Value*>* symbol_table, std::string name) {
+    auto it = symbol_table->find(name);
+    if (it != symbol_table->end()) {
+        return it->second;
+    }
+    std::cout << "Not find value: " << name << std::endl;
+    return nullptr;
+}
 
 translate::translate(NodePtr root) {
-    // Initialize the module (if any initialization is needed)
-    // Start the translation process by traversing the AST starting from the root
     traverse(root);
-
-    // Open the output file
     std::ofstream outFile("module_output.txt");
     if (!outFile.is_open()) {
         std::cerr << "Error opening file for writing" << std::endl;
         return;
     }
-
-    // Print the module content to the file
-    _module.print(outFile, false);  // Assuming `print` method accepts an output stream and a boolean flag
-
-    // Close the file
+    _module.print(outFile, false);
     outFile.close();
-
     std::cout << "Module printed to module_output.txt" << std::endl;
 }
 
@@ -40,32 +47,7 @@ void translate::traverse(NodePtr node) {
             for (auto child : compUnit->children) {
                 if (child->node_type == ND_Decl) { // 全局变量声明
                     std::cout<< "decl" << std::endl;
-
-                    struct VarDecl* vardecl = child->as<Decl*>()->vardecl->as<VarDecl*>();
-                    std::string_view btype = vardecl->btype;
-                    struct VarDefList* vardeflist = vardecl->vardeflist->as<VarDefList*>();
-
-                    for (auto child_1 : vardeflist->children) {
-                        struct VarDef* vardef = child_1->as<VarDef*>();
-                        std::string var_name = vardef->var_name;
-                        NodePtr init_value = vardef->init_value;
-                        std::vector<int> array_indices = vardef->array_indices;
-                        std::size_t NumElements = 1;
-
-                        for (auto child_2 : array_indices) {
-                            NumElements = NumElements * child_2;
-                        }
-
-                        if (array_indices.size() != 0) {
-                            Type *intType = Type::getIntegerTy();
-                            Type *pointerType = PointerType::get(intType);
-                            GlobalVariable *global_var = GlobalVariable::Create(pointerType, NumElements, false, var_name , &_module);
-                        } else {
-                            Type *intType = Type::getIntegerTy();
-                            GlobalVariable *global_var = GlobalVariable::Create(intType, NumElements, false, var_name , &_module);
-                        }
-                    }
-
+                    traverse(child);
                 } else if (child->node_type == ND_FuncDef) {  // 函数定义
                     std::cout<< "funcdef" << std::endl;
                     traverse(child);
@@ -74,68 +56,13 @@ void translate::traverse(NodePtr node) {
             std::cout<< "init finish" << std::endl;
             break;
         }
+        case ND_Decl: {
+            processGlobalDecl(node);
+            break;
+        }
 
         case ND_FuncDef: {
-            struct FuncDef* temp = node->as<FuncDef*>();
-
-            std::string_view return_type = temp->return_type;
-            std::string_view func_name = temp->func_name;
-            NodePtr body = temp->body;
-
-            // Function 返回类型
-            std::cout << return_type << "  " << func_name << std::endl;
-            Type *returnType;
-            if (return_type == "int") {
-                returnType = Type::getIntegerTy();
-            } else if (return_type == "void") {
-                returnType = Type::getUnitTy();
-            }
-
-            // Function 形参
-            std::vector<Type *> paramTypes;
-            struct FuncFParams* params;
-            if (temp->params == nullptr){
-                std::cout << "no params" << std::endl;
-            } else {
-                std::cout << "have params" << std::endl;
-                params = temp->params->as<FuncFParams*>();
-                std::cout << params->children.size() << std::endl;
-
-                for (auto child :params->children) {
-                    struct FuncFParam* param= child->as<FuncFParam*>();
-                    std::string param_type = param->param_type;
-                    std::string param_name = param->param_name;
-                    std::vector<int> dimensions = param->dimensions; // 存储数组的每个维度的大小
-                    if (dimensions.size() != 0) {
-                        Type *intType = Type::getIntegerTy();
-                        Type *pointerType = PointerType::get(intType);
-                        paramTypes.push_back(pointerType);
-                    } else {
-                        Type *intType = Type::getIntegerTy();
-                        paramTypes.push_back(intType);
-                    }
-                }
-            }
-
-            // 创建 FunctionType 实例
-            FunctionType *funcType = FunctionType::get(returnType, paramTypes);
-            Function *func = Function::Create(funcType, false, func_name , &_module);
-
-            BasicBlock* entry_bb = BasicBlock::Create(func, nullptr);
-            BasicBlock* return_bb = BasicBlock::Create(func, nullptr);
-
-            std::unordered_map<std::string_view, Value*> symbol_table;
-
-            BasicBlock* exit_bb = translate_stmt(body, entry_bb, &symbol_table);
-
-//            for (const auto& entry : symbol_table) {
-//                std::cout << "Key: " << entry.first << std::endl;
-//            }
-
-//            if (exit_bb != nullptr) {
-//                exit_bb->insertInto(func, nullptr);
-//            }
-
+            processFuncDef(node);
             break;
         }
 
@@ -146,7 +73,101 @@ void translate::traverse(NodePtr node) {
     return;
 }
 
-BasicBlock *translate::translate_stmt(NodePtr node, BasicBlock *current_bb, std::unordered_map<std::string_view, Value*>* symbol_table) {
+void translate::processGlobalDecl(NodePtr node){
+    struct VarDecl* vardecl = node->as<Decl*>()->vardecl->as<VarDecl*>();
+    std::string btype = vardecl->btype;
+    struct VarDefList* vardeflist = vardecl->vardeflist->as<VarDefList*>();
+
+    for (auto child_1 : vardeflist->children) {
+        struct VarDef* vardef = child_1->as<VarDef*>();
+        std::string var_name = vardef->var_name;
+        NodePtr init_value = vardef->init_value;
+        std::vector<int> array_indices = vardef->array_indices;
+        std::size_t NumElements = 1;
+
+        for (auto child_2 : array_indices) {
+            NumElements = NumElements * child_2;
+        }
+
+        if (array_indices.size() != 0) {
+            Type *intType = Type::getIntegerTy();
+            Type *pointerType = PointerType::get(intType);
+            GlobalVariable *global_var = GlobalVariable::Create(pointerType, NumElements, false, var_name , &_module);
+        } else {
+            Type *intType = Type::getIntegerTy();
+            GlobalVariable *global_var = GlobalVariable::Create(intType, NumElements, false, var_name , &_module);
+        }
+    }
+}
+
+void translate::processFuncDef(NodePtr node){
+    struct FuncDef* temp = node->as<FuncDef*>();
+
+    std::string return_type = temp->return_type;
+    std::string func_name = temp->func_name;
+    NodePtr body = temp->body;
+
+    // Function 返回类型
+    std::cout << return_type << "  " << func_name << std::endl;
+    Type *returnType;
+    if (return_type == "int") {
+        returnType = Type::getIntegerTy();
+    } else if (return_type == "void") {
+        returnType = Type::getUnitTy();
+    }
+
+    // Function 形参
+    std::vector<Type *> paramTypes;
+    struct FuncFParams* params;
+    if (temp->params == nullptr){
+        std::cout << "no params" << std::endl;
+    } else {
+        std::cout << "have params" << std::endl;
+        params = temp->params->as<FuncFParams*>();
+        std::cout << params->children.size() << std::endl;
+
+        for (auto child :params->children) {
+            struct FuncFParam* param= child->as<FuncFParam*>();
+            std::string param_type = param->param_type;
+            std::string param_name = param->param_name;
+            std::vector<int> dimensions = param->dimensions; // 存储数组的每个维度的大小
+            if (dimensions.size() != 0) {
+                Type *intType = Type::getIntegerTy();
+                Type *pointerType = PointerType::get(intType);
+                paramTypes.push_back(pointerType);
+            } else {
+                Type *intType = Type::getIntegerTy();
+                paramTypes.push_back(intType);
+            }
+        }
+    }
+
+    // 创建 FunctionType 实例
+    FunctionType *funcType = FunctionType::get(returnType, paramTypes);
+    Function *func = Function::Create(funcType, false, func_name , &_module);
+
+    BasicBlock* entry_bb = BasicBlock::Create(func, nullptr);
+    entry_bb->setName("Entry");
+//    BasicBlock* return_bb = BasicBlock::Create(func, nullptr);
+//    return_bb->setName("Return");
+
+    func_symbol_table.clear();
+
+    SymbolTable* symbol_table = &func_symbol_table;
+
+    translate_stmt(body, entry_bb, symbol_table);
+//    BasicBlock* exit_bb = translate_stmt(body, entry_bb, symbol_table);
+
+    std::cout << "printSymbolTable: "<<std::endl;
+    printSymbolTable(*symbol_table);
+
+//    if (exit_bb != nullptr) {
+//        exit_bb->insertInto(func, nullptr);
+//    }
+
+}
+
+BasicBlock *translate::translate_stmt(NodePtr node, BasicBlock *current_bb, std::unordered_map<std::string, Value*>* symbol_table) {
 
     BasicBlock *BB = BasicBlock::Create();
 
@@ -182,20 +203,16 @@ BasicBlock *translate::translate_stmt(NodePtr node, BasicBlock *current_bb, std:
 
             NodePtr lhs = node->as<AssignStmt*>()->lhs;
             NodePtr rhs = node->as<AssignStmt*>()->rhs;
-            Value *addr_value;
-            if(symbol_table->find(lhs->as<Lval*>()->ident_name)!=symbol_table->end()){
-                std::cout << "find" << std::endl;
-                addr_value = symbol_table->find(lhs->as<Lval*>()->ident_name)->second;
-            } else {
-                std::cout << "not find" << std::endl;
-                //symbol_table->insert({lhs->as<Lval*>()->ident_name, new AllocaInst(Type::getIntegerTy(), 1, current_bb)});
-            }
-            Value *result_value = translate_expr(rhs ,current_bb , symbol_table );
-            std::cout << "ND_AssignStmt finish" << std::endl;
+            std::string ident_name = lhs->as<Lval*>()->ident_name;
+            std::cout << "ident_name: "<< ident_name;
+
+            Value *addr_value = getValue(symbol_table, ident_name);
+
+            Value *result_value = translate_expr(rhs ,current_bb , symbol_table);
+
             StoreInst *store_inst= StoreInst::Create(result_value, addr_value, current_bb);
-            std::cout << "ND_AssignStmt finish3" << std::endl;
-            std::string var_name = lhs->as<Lval*>()->ident_name;
-            (*symbol_table)[var_name] = store_inst;
+
+            addValue(symbol_table, ident_name, store_inst);
 
             std::cout << "ND_AssignStmt finish" << std::endl;
             return current_bb;
@@ -216,26 +233,29 @@ BasicBlock *translate::translate_stmt(NodePtr node, BasicBlock *current_bb, std:
             NodePtr else_stmt = node->as<IfStmt*>()->else_stmt;
 
             Function *parent_func = current_bb->getParent();
-            BasicBlock *exit_bb = BasicBlock::Create(parent_func, &(*parent_func->end()));
+
             BasicBlock *true_bb = BasicBlock::Create(parent_func, &(*parent_func->end()));
+            true_bb->setName("IfTrue");
             BasicBlock *false_bb = BasicBlock::Create(parent_func, &(*parent_func->end()));
+            false_bb->setName("IfFalse");
+            BasicBlock *exit_bb = BasicBlock::Create(parent_func, nullptr);
+            exit_bb->setName("IfExit");
             Value *cond_value = translate_expr(condition , current_bb, symbol_table);
 
             if (else_stmt == nullptr) { // If (Expr) Stmt
-
+                std::cout << "If (Expr) Stmt" << std::endl;
                 BranchInst::Create(true_bb, exit_bb, cond_value, current_bb);
                 BasicBlock* true_exit_bb = translate_stmt(then_stmt, true_bb, symbol_table);
                 JumpInst::Create(exit_bb,true_exit_bb);
-
             } else { // If (Expr) Stmt1 Else Stmt2
-
+                std::cout << "If (Expr) Stmt1 Else Stmt2" << std::endl;
                 BranchInst::Create(true_bb, false_bb, cond_value, current_bb);
                 BasicBlock* true_exit_bb = translate_stmt(then_stmt, true_bb, symbol_table);
                 JumpInst::Create(exit_bb,true_exit_bb);
                 BasicBlock* false_exit_bb = translate_stmt(else_stmt, false_bb, symbol_table);
                 JumpInst::Create(exit_bb,false_exit_bb);
-
             }
+
             std::cout << "ND_ReturnStmt finish" << std::endl;
             return exit_bb;
             break;
@@ -307,7 +327,7 @@ BasicBlock *translate::translate_stmt(NodePtr node, BasicBlock *current_bb, std:
             std::cout << "ND_Decl" << std::endl;
 
             struct VarDecl* vardecl = node->as<Decl*>()->vardecl->as<VarDecl*>();
-            std::string_view btype = vardecl->btype;
+            std::string btype = vardecl->btype;
             struct VarDefList* vardeflist = vardecl->vardeflist->as<VarDefList*>();
             Type *intType = Type::getIntegerTy(); // change by btype
 
@@ -315,8 +335,8 @@ BasicBlock *translate::translate_stmt(NodePtr node, BasicBlock *current_bb, std:
                 struct VarDef *vardef = child->as<VarDef *>();
                 std::string var_name = vardef->var_name;
                 NodePtr init_value = vardef->init_value;
-                std::vector<int> array_indices = vardef->array_indices;
-                std::size_t NumElements = 1;
+                std::vector<int> array_indices = vardef->array_indices; // 可能存在的多维度
+                std::size_t NumElements = 1; // 元素个数
 
                 for (auto child_1: array_indices) {
                     NumElements = NumElements * child_1;
@@ -330,18 +350,22 @@ BasicBlock *translate::translate_stmt(NodePtr node, BasicBlock *current_bb, std:
                 if (array_indices.size() != 0) {
                     auto* type = PointerType::get(intType);
                     alloc_inst = AllocaInst::Create(type, NumElements, entry_bb);
+                    alloc_inst->setName(var_name);
                 } else {
                     alloc_inst = AllocaInst::Create(intType, NumElements , entry_bb);
+                    alloc_inst->setName(var_name);
                 }
 
-                (*symbol_table)[var_name] = alloc_inst;
-                std::cout<< (*symbol_table)[var_name] << std::endl;
+                std::cout<< "add_value: " << std::endl;
+                addValue(symbol_table, var_name, alloc_inst);
+
                 if (init_value != nullptr) {
                     Value *value = translate_expr(init_value, current_bb, symbol_table);
-//                    StoreInst *store_inst= StoreInst::Create(value, alloc_inst, current_bb);
-//                    symbol_table[var_name] = store_inst;
+                    StoreInst *store_inst= StoreInst::Create(value, alloc_inst, current_bb);
+                    addValue(symbol_table, var_name, store_inst);
                 }
             }
+
             std::cout << "ND_Decl finish" << std::endl;
             return current_bb;
             break;
@@ -354,15 +378,8 @@ BasicBlock *translate::translate_stmt(NodePtr node, BasicBlock *current_bb, std:
     return BB;
 }
 
-Value *translate::translate_expr(NodePtr node, BasicBlock *current_bb, std::unordered_map<std::string_view, Value*>*symbol_table) {
-    // Translate an expression node into an IR value
-    // The actual implementation depends on your expression node structure
-    // and the IR representation you are targeting
-
-    // Example (pseudocode):
+Value *translate::translate_expr(NodePtr node, BasicBlock *current_bb, std::unordered_map<std::string, Value*>*symbol_table) {
     Value *value = nullptr;
-    // Translate the expression into an IR value
-    // ...
 
     switch (node->node_type) {
         case ND_BinaryExp: {
@@ -423,7 +440,7 @@ Value *translate::translate_expr(NodePtr node, BasicBlock *current_bb, std::unor
             auto unaryExp = node->as<UnaryExp*>();
             if(unaryExp->ident_name != "") {
                 // 函数调用
-                std::string_view name = unaryExp->ident_name;
+                std::string name = unaryExp->ident_name;
                 std::vector<Value*> args;
                 if (unaryExp->funcrparams != nullptr) {
                     auto funcrparams = unaryExp->funcrparams->as<FuncRParams*>();
@@ -463,7 +480,7 @@ Value *translate::translate_expr(NodePtr node, BasicBlock *current_bb, std::unor
         }
         case ND_LVal: {
             auto lval = node->as<Lval*>();
-            std::string_view name = lval->ident_name;
+            std::string name = lval->ident_name;
             if (lval->lvalexplist == nullptr) {
                 // 如果没有下标访问，直接从符号表中获取值
                 auto it = symbol_table->find(name);
@@ -509,10 +526,15 @@ Value *translate::translate_expr(NodePtr node, BasicBlock *current_bb, std::unor
         case ND_Exp: {
             auto exp = node->as<Exp*>();
             value = translate_expr(exp->exp, current_bb, symbol_table);
-            std::cout << "ND_AssignStmt finish2" << std::endl;
             break;
         }
 
     }
     return value;
+}
+
+void translate::printSymbolTable(const std::unordered_map<std::string, Value*>& symbol_table) {
+    for (const auto& entry : symbol_table) {
+        std::cout << "Name: " << entry.first << " | Address: " << entry.second << std::endl;
+    }
 }
