@@ -470,38 +470,18 @@ Value *translate::translate_expr(NodePtr node, BasicBlock *current_bb, std::unor
                 if (it != symbol_table->end()) {
                     value = it->second;
                     // 使用 var_value 执行后续操作
+                } 
+            } else {
+                std::vector<Value*> indices;
+                // 获取数组的基地址
+                Value *addr_value = (*symbol_table)[name];
+                for (auto child : lval->lvalexplist->as<LValExpList*>()->children) {
+                    // 获取每个子节点的整数值
+                    Value *index = translate_expr(child, current_bb, symbol_table);
+                    indices.push_back(index);
                 }
-                // } else {
-                //     // 有下标访问，需要计算数组元素地址
-                //     // element type
-                //     array_type = lookup_var_type(sym_table, ID);
-                //     elem_type = get_elem_type(array_type);
-                //     // address of the first element in the array,
-                //     // which is actually the stack address represented
-                //     // by a 'alloca' instruction or a global variable.
-                //     addr_value = lookup(sym_table, ID);
-                //     // indices
-                //     indices = [];
-                //     for idx in Idx1..IdxN:
-                //     indices += translate_expr(idx, sym_table, current_bb);
-                //     // bounds
-                //     bounds = get_bounds(array_type);
-                //     return create_load(create_offset(
-                //     elem_type,
-                //     addr_value,
-                //     indices,
-                //     bounds
-                //     ));
-                //     std::vector<Value*> indices;
-                //     // 获取数组的基地址
-                //     Value *array = symbol_table[name];
-                //     for (auto child : lval->lvalexplist->as<LValExpList*>()->children) {
-                //         // 获取每个子节点的整数值
-                //         Value *index = translate_expr(child, current_bb, symbol_table);
-                //         indices.push_back(index);
-                //     }
-                //     Value *offset = OffsetInst::Create(array->getType(),array, indices, current_bb);
-                //     value = LoadInst::Create(array, indices, current_bb);
+                Value *offset = OffsetInst::Create(array->getType(),array, indices, current_bb);
+                value = LoadInst::Create(array, indices, current_bb);
             }
             break;
         }
