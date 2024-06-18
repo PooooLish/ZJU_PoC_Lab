@@ -16,20 +16,30 @@ public:
 
     ~translate() = default;
 
-    std::unordered_map<std::string_view, Value* > symbol_table;
+    std::unordered_map<std::string, Value*> func_symbol_table;
+
+    std::unordered_map<std::string, Value*> global_symbol_map;
 
     const Module &getModule() const { return _module; }
 
-private:
     Module _module;
 
     void traverse(NodePtr node);
 
-    std::unordered_map<std::string_view, Value*> global_symbol_map;
+    void processGlobalDecl(NodePtr node);
 
-    BasicBlock *translate_stmt(NodePtr node, BasicBlock *current_bb, std::unordered_map<std::string_view, Value*>* symbol_table);
+    void processFuncDef(NodePtr node);
 
-    Value *translate_expr(NodePtr node, BasicBlock *current_bb, std::unordered_map<std::string_view, Value*>* symbol_table);
+    BasicBlock *translate_stmt(NodePtr node, BasicBlock *current_bb, std::unordered_map<std::string, Value*>* symbol_table);
+
+    Value *translate_expr(NodePtr node, BasicBlock *current_bb, std::unordered_map<std::string, Value*>* symbol_table);
+
+    void printSymbolTable(const std::unordered_map<std::string, Value*>& symbol_table);
+
+    void addValue(std::unordered_map<std::string, Value*>* symbol_table, std::string name, Value* value);
+
+    Value* getValue(const std::unordered_map<std::string, Value*>* symbol_table, std::string name);
+
 };
 
 

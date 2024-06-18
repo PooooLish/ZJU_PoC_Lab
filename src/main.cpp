@@ -12,7 +12,7 @@ int main(int argc, char **argv) {
     yyin = fopen(argv[1], "r");
     int parse_result = yyparse();
     fclose(yyin);
-    
+
     if (parse_result != 0) {
         return 1;
     }
