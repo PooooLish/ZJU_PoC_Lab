@@ -1,8 +1,8 @@
 //test add
 int main(){
-    int a, b;
+    int a, b ,c;
     a = 10;
     b = -1;
-    putint(a+b);
+    c = a + b;
     return 0;
 }

@@ -511,18 +511,19 @@ Value *translate::translate_expr(NodePtr node, BasicBlock *current_bb, std::unor
                     value = it->second;
                     // 使用 var_value 执行后续操作
                 } 
-            } else {
-                std::vector<Value*> indices;
-                // 获取数组的基地址
-                Value *addr_value = (*symbol_table)[name];
-                for (auto child : lval->lvalexplist->as<LValExpList*>()->children) {
-                    // 获取每个子节点的整数值
-                    Value *index = translate_expr(child, current_bb, symbol_table);
-                    indices.push_back(index);
-                }
-                Value *offset = OffsetInst::Create(array->getType(),array, indices, current_bb);
-                value = LoadInst::Create(array, indices, current_bb);
             }
+            // } else {
+            //     std::vector<Value*> indices;
+            //     // 获取数组的基地址
+            //     Value *addr_value = (*symbol_table)[name];
+            //     for (auto child : lval->lvalexplist->as<LValExpList*>()->children) {
+            //         // 获取每个子节点的整数值
+            //         Value *index = translate_expr(child, current_bb, symbol_table);
+            //         indices.push_back(index);
+            //     }
+            //     Value *offset = OffsetInst::Create(array->getType(),array, indices, current_bb);
+            //     value = LoadInst::Create(array, indices, current_bb);
+            // }
             break;
         }
 
