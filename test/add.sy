@@ -1,8 +1,12 @@
 //test add
+int x = 1;
+int y = x + 1;
 int main(){
-    int a, b ,c;
+    int a, b ,c,d[10];
     a = 10;
     b = -1;
-    c = a + b;
+    c = a + 1;
+    d[5]=5;
+    d[6]=6;
     return 0;
 }

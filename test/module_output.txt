@@ -1,0 +1,35 @@
+fn @putint(#0: i32 ) -> () {
+}
+fn @getint( ) -> i32 {
+}
+fn @if_ifElse_( ) -> i32 {
+%Entry:
+  let %a = alloca i32, 1
+  let %0 = store 5, %a
+  let %b = alloca i32, 1
+  let %1 = store 10, %b
+  let %2 = load %a
+  let %3 = eq %2, 5
+  br %3, label %If_true, label %If_exit
+%If_true:
+  let %5 = load %b
+  let %6 = eq %5, 10
+  br %6, label %If_true, label %If_false
+%If_exit:
+%If_true:
+  let %8 = store 25, %a
+  jmp label %If_exit
+%If_false:
+  let %10 = load %a
+  let %11 = add %10, 15
+  let %12 = store %11, %a
+  jmp label %If_exit
+%If_exit:
+  jmp label %If_exit
+%Ret:
+}
+fn @main( ) -> i32 {
+%Entry:
+  let %0 = call @if_ifElse_
+%Ret:
+}

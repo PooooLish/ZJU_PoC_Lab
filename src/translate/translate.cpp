@@ -26,6 +26,17 @@ Value* translate::getValue(const std::unordered_map<std::string, Value*>* symbol
 }
 
 translate::translate(NodePtr root) {
+    // putint(int x)
+    Type *intType = Type::getIntegerTy();
+    std::vector<Type *> putintParamTypes = { intType };
+    FunctionType *putintType = FunctionType::get(Type::getUnitTy(), putintParamTypes);
+    Function *putintFunc = Function::Create(putintType, false, "putint", &_module);
+
+    // getint()
+    std::vector<Type *> getintparamTypes;
+    FunctionType *getintType = FunctionType::get(intType, getintparamTypes);
+    Function *getintFunc = Function::Create(getintType, false, "getint", &_module);
+    
     traverse(root);
     std::ofstream outFile("module_output.txt");
     if (!outFile.is_open()) {
@@ -350,7 +361,7 @@ BasicBlock *translate::translate_stmt(NodePtr node, BasicBlock *current_bb, std:
             std::string btype = vardecl->btype;
             struct VarDefList* vardeflist = vardecl->vardeflist->as<VarDefList*>();
             Type *intType = Type::getIntegerTy(); // change by btype
-
+            //std::cout << "\n"<< Type::getIntegerTy() << " 2222222 " << intType << std::endl;
             for (auto child : vardeflist->children) {
                 struct VarDef *vardef = child->as<VarDef *>();
                 std::string var_name = vardef->var_name;
@@ -368,6 +379,7 @@ BasicBlock *translate::translate_stmt(NodePtr node, BasicBlock *current_bb, std:
                 AllocaInst *alloc_inst;
 
                 auto* type = array_indices.size() == 0 ? intType : PointerType::get(intType);
+                std::cout << "\n"<< Type::getIntegerTy() << " 2222222 " <<type << std::endl;
 
                 if (current_bb == entry_bb){
                     alloc_inst = AllocaInst::Create(type, NumElements, entry_bb);
@@ -377,14 +389,16 @@ BasicBlock *translate::translate_stmt(NodePtr node, BasicBlock *current_bb, std:
                 }
                 alloc_inst->setName(var_name);
 
-                std::cout<< "add_value: " << std::endl;
+                std::cout<< "add_value: " <<type<< std::endl;
                 addValue(symbol_table, var_name, alloc_inst);
+                std::cout<< alloc_inst->getAllocatedType()<< std::endl;
 
                 if (init_value != nullptr) {
                     std::cout << "have init_value" << std::endl;
                     NodePtr init_value_exp = init_value->as<InitVal*>()->exp;
                     Value *result_value = translate_expr(init_value_exp ,current_bb , symbol_table);
                     StoreInst *store_inst= StoreInst::Create(result_value, alloc_inst, current_bb);
+                    
                 }
 
             }
@@ -401,17 +415,31 @@ BasicBlock *translate::translate_stmt(NodePtr node, BasicBlock *current_bb, std:
     return BB;
 }
 
-Value *translate::translate_expr(NodePtr node, BasicBlock *current_bb, std::unordered_map<std::string, Value*>*symbol_table) {
+Value *translate::translate_expr(NodePtr node, BasicBlock *current_bb, std::unordered_map<std::string, Value*>* symbol_table) {
     Value *value = nullptr;
 
     switch (node->node_type) {
         case ND_BinaryExp: {
             auto binaryExp = node->as<BinaryExp*>();
-            Value *lhs = translate_expr(binaryExp->lhs, current_bb, symbol_table);
-            Value *rhs = translate_expr(binaryExp->rhs, current_bb, symbol_table);
+            Value *lhs;
+            Value *rhs;
+            Value *lhs_addr = translate_expr(binaryExp->lhs, current_bb, symbol_table);
+            if(lhs_addr->getType() != Type::getIntegerTy()) {
+                lhs = LoadInst::Create(lhs_addr, current_bb);
+            } else {
+                lhs = lhs_addr;
+            }
+            Value *rhs_addr = translate_expr(binaryExp->rhs, current_bb, symbol_table);
+            if(rhs_addr->getType() != Type::getIntegerTy()) {
+                rhs = LoadInst::Create(rhs_addr, current_bb);
+            } else {
+                rhs = rhs_addr;
+            }
             // Mapping from binary operator type to the corresponding creation function
             switch (binaryExp->op) {
                 case Add:
+                    std::cout << lhs->getType()<< " "<<rhs->ConstantIntVal << std::endl;
+                    std::cout<<"11111111"<<Type::getIntegerTy()<<std::endl;
                     value = BinaryInst::CreateAdd(lhs, rhs, lhs->getType(), current_bb);
                     break;
                 case Sub:
@@ -427,6 +455,7 @@ Value *translate::translate_expr(NodePtr node, BasicBlock *current_bb, std::unor
                     value = BinaryInst::CreateMod(lhs, rhs, lhs->getType(), current_bb);
                     break;
                 case Eq:
+                    std::cout << lhs->getType() << " "<<rhs->getType() << std::endl;
                     value = BinaryInst::CreateEq(lhs, rhs, lhs->getType(), current_bb);
                     break;
                 case Ne:
@@ -498,7 +527,9 @@ Value *translate::translate_expr(NodePtr node, BasicBlock *current_bb, std::unor
         }
         case ND_IntegerLiteral: {
             auto intLiteral = node->as<IntegerLiteral*>();
-            value = ConstantInt::Create(intLiteral->value);
+            ConstantInt *value1 = ConstantInt::Create(intLiteral->value);
+            std::cout <<"       " <<value1->getType() << std::endl;
+            value = value1;
             break;
         }
         case ND_LVal: {
@@ -512,18 +543,18 @@ Value *translate::translate_expr(NodePtr node, BasicBlock *current_bb, std::unor
                     // 使用 var_value 执行后续操作
                 } 
             }
-            // } else {
-            //     std::vector<Value*> indices;
-            //     // 获取数组的基地址
-            //     Value *addr_value = (*symbol_table)[name];
-            //     for (auto child : lval->lvalexplist->as<LValExpList*>()->children) {
-            //         // 获取每个子节点的整数值
-            //         Value *index = translate_expr(child, current_bb, symbol_table);
-            //         indices.push_back(index);
-            //     }
-            //     Value *offset = OffsetInst::Create(array->getType(),array, indices, current_bb);
-            //     value = LoadInst::Create(array, indices, current_bb);
-            // }
+            else {
+                std::vector<Value*> indices;
+                // 获取数组的基地址
+                Value *addr_value = (*symbol_table)[name];
+                for (auto child : lval->lvalexplist->as<LValExpList*>()->children) {
+                    // 获取每个子节点的整数值
+                    Value *index = translate_expr(child, current_bb, symbol_table);
+                    indices.push_back(index);
+                }
+                Value *offset = OffsetInst::Create(array->getType(),array, indices, current_bb);
+                value = LoadInst::Create(array, indices, current_bb);
+            }
             break;
         }
 

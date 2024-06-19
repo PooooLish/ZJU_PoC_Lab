@@ -14,6 +14,6 @@ int if_ifElse_() {
 }
 
 int main(){
-  putint(if_ifElse_());
+  if_ifElse_();
   return 0;
 }
