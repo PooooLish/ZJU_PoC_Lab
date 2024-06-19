@@ -25,41 +25,17 @@ Value* translate::getAddr(const std::unordered_map<std::string, Value*>* symbol_
     return nullptr;
 }
 
-//translate::translate(NodePtr root) {
-//    // putint(int x)
-//    Type *intType = Type::getIntegerTy();
-//    std::vector<Type *> putintParamTypes = { intType };
-//    FunctionType *putintType = FunctionType::get(Type::getUnitTy(), putintParamTypes);
-//    Function *putintFunc = Function::Create(putintType, false, "putint", &_module);
-//
-//    // getint()
-//    std::vector<Type *> getintparamTypes;
-//    FunctionType *getintType = FunctionType::get(intType, getintparamTypes);
-//    Function *getintFunc = Function::Create(getintType, false, "getint", &_module);
-//
-//    traverse(root);
-//    std::ofstream outFile("module_output.txt");
-//    if (!outFile.is_open()) {
-//        std::cerr << "Error opening file for writing" << std::endl;
-//        return;
-//    }
-//    _module.print(outFile, false);
-//    outFile.close();
-//    std::cout << "Module printed to module_output.txt" << std::endl;
-//}
-
-
 translate::translate(NodePtr root, const std::string& output_file) {
     // putint(int x)
-    Type *intType = Type::getIntegerTy();
-    std::vector<Type *> putintParamTypes = { intType };
-    FunctionType *putintType = FunctionType::get(Type::getUnitTy(), putintParamTypes);
-    Function *putintFunc = Function::Create(putintType, false, "putint", &_module);
+    // Type *intType = Type::getIntegerTy();
+    // std::vector<Type *> putintParamTypes = { intType };
+    // FunctionType *putintType = FunctionType::get(Type::getUnitTy(), putintParamTypes);
+    // Function *putintFunc = Function::Create(putintType, false, "putint", &_module);
 
     // getint()
-    std::vector<Type *> getintParamTypes;
-    FunctionType *getintType = FunctionType::get(intType, getintParamTypes);
-    Function *getintFunc = Function::Create(getintType, false, "getint", &_module);
+    // std::vector<Type *> getintParamTypes;
+    // FunctionType *getintType = FunctionType::get(intType, getintParamTypes);
+    // Function *getintFunc = Function::Create(getintType, false, "getint", &_module);
 
     traverse(root);
 
@@ -198,11 +174,6 @@ void translate::processFuncDef(NodePtr node){
 
     return_bb = BasicBlock::Create(func, nullptr);
     return_bb->setName("Ret");
-    std::cout << "return_bb has name?: " << return_bb->hasName() << std::endl;
-    std::cout << "return_bb name: " << return_bb->getName() << std::endl;
-
-    BasicBlock* last_bb = &(*func->end());
-    std::cout << "last_bb has name?: " << last_bb->hasName() << std::endl;
 
     LoadInst* return_value_inst;
     return_value_inst = LoadInst::Create(return_alloc_inst, return_bb);
@@ -328,9 +299,10 @@ BasicBlock *translate::translate_stmt(NodePtr node, BasicBlock *current_bb, std:
                 BranchInst::Create(true_bb, exit_bb, cond_value, current_bb);
                 BasicBlock* true_exit_bb = translate_stmt(then_stmt, true_bb, symbol_table);
                 if (true_exit_bb == nullptr){
-                    std::cout << "111111" << std::endl;
+                    std::cout << "If (Expr) Stmt include 'return'" << std::endl;
+                } else {
+                    JumpInst::Create(exit_bb,true_exit_bb);
                 }
-                JumpInst::Create(exit_bb,true_exit_bb);
             } else {
                 // If (Expr) Stmt1 Else Stmt2
 
@@ -340,14 +312,14 @@ BasicBlock *translate::translate_stmt(NodePtr node, BasicBlock *current_bb, std:
                 BranchInst::Create(true_bb, false_bb, cond_value, current_bb);
                 BasicBlock* true_exit_bb = translate_stmt(then_stmt, true_bb, symbol_table);
                 if (true_exit_bb == nullptr){
-                    std::cout << "111111" << std::endl;
+                    std::cout << "If (Expr) Stmt1 Else Stmt2 include 'return'" << std::endl;
                 } else {
                     JumpInst::Create(exit_bb,true_exit_bb);
                 }
 
                 BasicBlock* false_exit_bb = translate_stmt(else_stmt, false_bb, symbol_table);
                 if (false_exit_bb == nullptr){
-                    std::cout << "111111" << std::endl;
+                    std::cout << "If (Expr) Stmt1 Else Stmt2 include 'return'" << std::endl;
                 } else {
                     JumpInst::Create(exit_bb,false_exit_bb);
                 }
@@ -355,7 +327,6 @@ BasicBlock *translate::translate_stmt(NodePtr node, BasicBlock *current_bb, std:
             }
 
             std::cout << "ND_IfStmt finish" << std::endl;
-
             return exit_bb;
 
             break;
@@ -368,19 +339,22 @@ BasicBlock *translate::translate_stmt(NodePtr node, BasicBlock *current_bb, std:
 
             NodePtr condition = node->as<WhileStmt*>()->condition;
             NodePtr body = node->as<WhileStmt*>()->body;
-            BasicBlock* return_bb = &(*parent_func->end());
 
-            BasicBlock *exit_bb = BasicBlock::Create(parent_func, return_bb); exit_bb->setName("While_exit");
-            BasicBlock *entry_bb = BasicBlock::Create(parent_func, exit_bb); entry_bb->setName("While_entry");
-            BasicBlock *body_bb = BasicBlock::Create(parent_func, exit_bb); body_bb->setName("While_body");
+            BasicBlock *while_exit_bb = BasicBlock::Create(parent_func, return_bb); while_exit_bb->setName("While_exit");
+            BasicBlock *while_entry_bb = BasicBlock::Create(parent_func, while_exit_bb); while_entry_bb->setName("While_entry");
+            BasicBlock *while_body_bb = BasicBlock::Create(parent_func, while_exit_bb); while_body_bb->setName("While_body");
 
-            JumpInst::Create(entry_bb,current_bb);
-            Value *cond_value = translate_expr(condition , entry_bb, symbol_table);
-            BranchInst::Create(body_bb, exit_bb, cond_value, entry_bb);
-            BasicBlock* body_exit_bb = translate_stmt(body, body_bb, symbol_table);
-            JumpInst::Create(entry_bb,body_exit_bb);
+            JumpInst::Create(while_entry_bb,current_bb);
+            Value *cond_value = translate_expr(condition , while_entry_bb, symbol_table);
+            BranchInst::Create(while_body_bb, while_exit_bb, cond_value, while_entry_bb);
+            BasicBlock* body_exit_bb = translate_stmt(body, while_body_bb, symbol_table);
+            if (body_exit_bb == nullptr){
+                std::cout << "While (Expr) Stmt include 'return'" << std::endl;
+            } else {
+                JumpInst::Create(while_entry_bb,body_exit_bb);
+            }
 
-            return exit_bb;
+            return while_exit_bb;
             break;
         }
 
