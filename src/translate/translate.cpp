@@ -26,16 +26,45 @@ Value* translate::getAddr(const std::unordered_map<std::string, Value*>* symbol_
 }
 
 translate::translate(NodePtr root, const std::string& output_file) {
+
+    Type *intType = Type::getIntegerTy();
+    Type *pointerType = PointerType::get(intType);
+
     // putint(int x)
-    // Type *intType = Type::getIntegerTy();
-    // std::vector<Type *> putintParamTypes = { intType };
-    // FunctionType *putintType = FunctionType::get(Type::getUnitTy(), putintParamTypes);
-    // Function *putintFunc = Function::Create(putintType, false, "putint", &_module);
+    std::vector<Type *> putintParamTypes = { intType };
+    FunctionType *putintType = FunctionType::get(Type::getUnitTy(), putintParamTypes);
+    Function *putintFunc = Function::Create(putintType, true, "putint", &_module);
+    putintFunc->getArg(0)->setName("x");
+
+    // putch(int x)
+    std::vector<Type *> putchParamTypes = { intType };
+    FunctionType *putchType = FunctionType::get(Type::getUnitTy(), putchParamTypes);
+    Function *putchFunc = Function::Create(putchType, true, "putch", &_module);
+    putchFunc->getArg(0)->setName("x");
+
+    // putarray(int n, pointer arr)
+    std::vector<Type *> putarrayParamTypes = { intType , pointerType};
+    FunctionType *putarrayType = FunctionType::get(Type::getUnitTy(), putarrayParamTypes);
+    Function *putarrayFunc = Function::Create(putarrayType, true, "putarray", &_module);
+    putarrayFunc->getArg(0)->setName("n");
+    putarrayFunc->getArg(1)->setName("arr");
 
     // getint()
-    // std::vector<Type *> getintParamTypes;
-    // FunctionType *getintType = FunctionType::get(intType, getintParamTypes);
-    // Function *getintFunc = Function::Create(getintType, false, "getint", &_module);
+    std::vector<Type *> getintParamTypes;
+    FunctionType *getintType = FunctionType::get(intType, getintParamTypes);
+    Function *getintFunc = Function::Create(getintType, true, "getint", &_module);
+
+    // getch()
+    std::vector<Type *> getchParamTypes;
+    FunctionType *getchType = FunctionType::get(intType, getchParamTypes);
+    Function *getchFunc = Function::Create(getchType, true, "getch", &_module);
+
+    // getarray(int n, pointer arr)
+    std::vector<Type *> getarrayParamTypes = { intType , pointerType};
+    FunctionType *getarrayType = FunctionType::get(Type::getUnitTy(), getarrayParamTypes);
+    Function *getarrayFunc = Function::Create(getarrayType, true, "getarray", &_module);
+    getarrayFunc->getArg(0)->setName("n");
+    getarrayFunc->getArg(1)->setName("arr");
 
     traverse(root);
 
@@ -290,11 +319,12 @@ BasicBlock *translate::translate_stmt(NodePtr node, BasicBlock *current_bb, std:
 //            BasicBlock *return_bb = &(*parent_func->end());
 
             BasicBlock *exit_bb = BasicBlock::Create(parent_func, return_bb);
-            exit_bb->setName("If_exit");
+//            exit_bb->setName("If_exit");
 
             if (else_stmt == nullptr) {
                 // If (Expr) Stmt
-                BasicBlock *true_bb = BasicBlock::Create(parent_func, exit_bb); true_bb->setName("If_true");
+                BasicBlock *true_bb = BasicBlock::Create(parent_func, exit_bb);
+//                true_bb->setName("If_true");
                 Value *cond_value = translate_expr(condition , current_bb, symbol_table);
                 BranchInst::Create(true_bb, exit_bb, cond_value, current_bb);
                 BasicBlock* true_exit_bb = translate_stmt(then_stmt, true_bb, symbol_table);
@@ -306,9 +336,11 @@ BasicBlock *translate::translate_stmt(NodePtr node, BasicBlock *current_bb, std:
             } else {
                 // If (Expr) Stmt1 Else Stmt2
 
-                BasicBlock *true_bb = BasicBlock::Create(parent_func, exit_bb); true_bb->setName("If_true");
+                BasicBlock *true_bb = BasicBlock::Create(parent_func, exit_bb);
+//                true_bb->setName("If_true");
                 Value *cond_value = translate_expr(condition , current_bb, symbol_table);
-                BasicBlock *false_bb = BasicBlock::Create(parent_func, exit_bb); false_bb->setName("If_false");
+                BasicBlock *false_bb = BasicBlock::Create(parent_func, exit_bb);
+//                false_bb->setName("If_false");
                 BranchInst::Create(true_bb, false_bb, cond_value, current_bb);
                 BasicBlock* true_exit_bb = translate_stmt(then_stmt, true_bb, symbol_table);
                 if (true_exit_bb == nullptr){
@@ -340,9 +372,12 @@ BasicBlock *translate::translate_stmt(NodePtr node, BasicBlock *current_bb, std:
             NodePtr condition = node->as<WhileStmt*>()->condition;
             NodePtr body = node->as<WhileStmt*>()->body;
 
-            BasicBlock *while_exit_bb = BasicBlock::Create(parent_func, return_bb); while_exit_bb->setName("While_exit");
-            BasicBlock *while_entry_bb = BasicBlock::Create(parent_func, while_exit_bb); while_entry_bb->setName("While_entry");
-            BasicBlock *while_body_bb = BasicBlock::Create(parent_func, while_exit_bb); while_body_bb->setName("While_body");
+            BasicBlock *while_exit_bb = BasicBlock::Create(parent_func, return_bb);
+//            while_exit_bb->setName("While_exit");
+            BasicBlock *while_entry_bb = BasicBlock::Create(parent_func, while_exit_bb);
+//            while_entry_bb->setName("While_entry");
+            BasicBlock *while_body_bb = BasicBlock::Create(parent_func, while_exit_bb);
+//            while_body_bb->setName("While_body");
 
             JumpInst::Create(while_entry_bb,current_bb);
             Value *cond_value = translate_expr(condition , while_entry_bb, symbol_table);
