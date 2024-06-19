@@ -11,12 +11,12 @@
 
 using SymbolTable = std::unordered_map<std::string, Value*>;
 
-void translate::addValue(std::unordered_map<std::string, Value*>* symbol_table, std::string name, Value* value) {
+void translate::addAddr(std::unordered_map<std::string, Value*>* symbol_table, std::string name, Value* value) {
     (*symbol_table)[name] = value;
     std::cout << "Add value: " << name << std::endl;
 }
 
-Value* translate::getValue(const std::unordered_map<std::string, Value*>* symbol_table, std::string name) {
+Value* translate::getAddr(const std::unordered_map<std::string, Value*>* symbol_table, std::string name) {
     auto it = symbol_table->find(name);
     if (it != symbol_table->end()) {
         return it->second;
@@ -66,7 +66,11 @@ void translate::traverse(NodePtr node) {
             break;
         }
         case ND_Decl: {
+            
             processGlobalDecl(node);
+            for (const auto& pair : _module.getGlobalVariableMap()) {
+        std::cout << pair.first << " : " << pair.second << std::endl;
+    }
             break;
         }
         case ND_FuncDef: {
@@ -82,28 +86,30 @@ void translate::traverse(NodePtr node) {
 
 void translate::processGlobalDecl(NodePtr node){
     struct VarDecl* vardecl = node->as<Decl*>()->vardecl->as<VarDecl*>();
-    std::string btype = vardecl->btype;
     struct VarDefList* vardeflist = vardecl->vardeflist->as<VarDefList*>();
-
+ 
     for (auto child_1 : vardeflist->children) {
         struct VarDef* vardef = child_1->as<VarDef*>();
         std::string var_name = vardef->var_name;
         NodePtr init_value = vardef->init_value;
         std::vector<int> array_indices = vardef->array_indices;
         std::size_t NumElements = 1;
+       
 
         for (auto child_2 : array_indices) {
             NumElements = NumElements * child_2;
         }
-
         if (array_indices.size() != 0) {
             Type *intType = Type::getIntegerTy();
             Type *pointerType = PointerType::get(intType);
-            GlobalVariable *global_var = GlobalVariable::Create(pointerType, NumElements, false, var_name , &_module);
+            GlobalVariable *global_var = GlobalVariable::Create(pointerType, NumElements, true, var_name , &_module);
         } else {
             Type *intType = Type::getIntegerTy();
-            GlobalVariable *global_var = GlobalVariable::Create(intType, NumElements, false, var_name , &_module);
+            GlobalVariable *global_var = GlobalVariable::Create(intType, NumElements, true, var_name , &_module);
         }
+    }
+    for (const auto& pair : _module.getGlobalVariableMap()) {
+        std::cout << pair.first << " : " << pair.second << std::endl;
     }
 }
 
@@ -186,7 +192,7 @@ void translate::processFuncDef(NodePtr node){
             alloc_inst = AllocaInst::Create(type, NumElements, entry_bb);
             alloc_inst->setName(param_name);
 
-            addValue(symbol_table ,param_name , alloc_inst);
+            addAddr(symbol_table ,param_name , alloc_inst);
 
             param_num++;
         }
@@ -239,7 +245,7 @@ BasicBlock *translate::translate_stmt(NodePtr node, BasicBlock *current_bb, std:
             std::string ident_name = lhs->as<Lval*>()->ident_name;
             std::cout << "ident_name: "<< ident_name;
 
-            Value *addr_value = getValue(symbol_table, ident_name);
+            Value *addr_value = getAddr(symbol_table, ident_name);
             Value *result_value = translate_expr(rhs ,current_bb , symbol_table);
 
             StoreInst *store_inst= StoreInst::Create(result_value, addr_value, current_bb);
@@ -390,7 +396,7 @@ BasicBlock *translate::translate_stmt(NodePtr node, BasicBlock *current_bb, std:
                 alloc_inst->setName(var_name);
 
                 std::cout<< "add_value: " <<type<< std::endl;
-                addValue(symbol_table, var_name, alloc_inst);
+                addAddr(symbol_table, var_name, alloc_inst);
                 std::cout<< alloc_inst->getAllocatedType()<< std::endl;
 
                 if (init_value != nullptr) {
@@ -552,8 +558,8 @@ Value *translate::translate_expr(NodePtr node, BasicBlock *current_bb, std::unor
                     Value *index = translate_expr(child, current_bb, symbol_table);
                     indices.push_back(index);
                 }
-                Value *offset = OffsetInst::Create(array->getType(),array, indices, current_bb);
-                value = LoadInst::Create(array, indices, current_bb);
+                // Value *offset = OffsetInst::Create(array->getType(),array, indices, current_bb);
+                // value = LoadInst::Create(array, indices, current_bb);
             }
             break;
         }

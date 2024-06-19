@@ -36,9 +36,9 @@ public:
 
     void printSymbolTable(const std::unordered_map<std::string, Value*>& symbol_table);
 
-    void addValue(std::unordered_map<std::string, Value*>* symbol_table, std::string name, Value* value);
+    void addAddr(std::unordered_map<std::string, Value*>* symbol_table, std::string name, Value* value);
 
-    Value* getValue(const std::unordered_map<std::string, Value*>* symbol_table, std::string name);
+    Value* getAddr(const std::unordered_map<std::string, Value*>* symbol_table, std::string name);
 
 };
 
