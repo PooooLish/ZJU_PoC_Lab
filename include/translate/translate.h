@@ -12,7 +12,7 @@
 
 class translate {
 public:
-    explicit translate(NodePtr root);
+    explicit translate(NodePtr root, const std::string& output_file);
 
     ~translate() = default;
 
@@ -39,6 +39,10 @@ public:
     void addAddr(std::unordered_map<std::string, Value*>* symbol_table, std::string name, Value* value);
 
     Value* getAddr(const std::unordered_map<std::string, Value*>* symbol_table, std::string name);
+
+    BasicBlock* entry_bb;
+
+    BasicBlock* return_bb;
 
 };
 
