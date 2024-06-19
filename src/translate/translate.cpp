@@ -423,9 +423,10 @@ BasicBlock *translate::translate_stmt(NodePtr node, BasicBlock *current_bb, std:
 
 Value *translate::translate_expr(NodePtr node, BasicBlock *current_bb, std::unordered_map<std::string, Value*>* symbol_table) {
     Value *value = nullptr;
-
+    
     switch (node->node_type) {
         case ND_BinaryExp: {
+            
             auto binaryExp = node->as<BinaryExp*>();
             Value *lhs;
             Value *rhs;
@@ -441,6 +442,7 @@ Value *translate::translate_expr(NodePtr node, BasicBlock *current_bb, std::unor
             } else {
                 rhs = rhs_addr;
             }
+
             // Mapping from binary operator type to the corresponding creation function
             switch (binaryExp->op) {
                 case Add:
@@ -449,6 +451,7 @@ Value *translate::translate_expr(NodePtr node, BasicBlock *current_bb, std::unor
                     value = BinaryInst::CreateAdd(lhs, rhs, lhs->getType(), current_bb);
                     break;
                 case Sub:
+                    
                     value = BinaryInst::CreateSub(lhs, rhs, lhs->getType(), current_bb);
                     break;
                 case Mul:
@@ -495,6 +498,7 @@ Value *translate::translate_expr(NodePtr node, BasicBlock *current_bb, std::unor
             break;
         }
         case ND_UnaryExp: {
+
             auto unaryExp = node->as<UnaryExp*>();
             if(unaryExp->ident_name != "") {
                 // 函数调用
@@ -516,9 +520,18 @@ Value *translate::translate_expr(NodePtr node, BasicBlock *current_bb, std::unor
             } else if (unaryExp->operand != nullptr) {
                 // 一元操作符（-、!等）(unaryExp->op, unaryExp->operand
                 Value *operand = translate_expr(unaryExp->operand, current_bb, symbol_table);
+                if(operand->getType() != Type::getIntegerTy()) {
+                    operand = LoadInst::Create(operand, current_bb);
+                }
+                std::cout<<"11111111"<<std::endl;
                 if (unaryExp->op==Neg) {
                     Value* zero_value = ConstantInt::Create(0);
                     value = BinaryInst::CreateSub(zero_value, operand, operand->getType(), current_bb);
+                }else if(unaryExp->op==Lnot) {
+                    Value* zero_value = ConstantInt::Create(0);
+                    value = BinaryInst::CreateEq(operand, zero_value, operand->getType(), current_bb);
+                }else {
+                    value = operand;
                 }
             } else if (unaryExp->primaryexp != nullptr) {
                 // primaryexp
