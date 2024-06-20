@@ -224,19 +224,26 @@ void translate::processFuncDef(NodePtr node){
             std::vector<int> dimensions = param->dimensions; // 存储数组的每个维度的大小
             Type *intType = Type::getIntegerTy();
 
-            func->getArg(param_num)->setName(param_name);
+//            func->getArg(param_num)->setName(param_name); // 形参著名
 
-            std::size_t NumElements = 1; // 元素个数
+            std::size_t NumElements = 1; // 形参元素个数
 
             for (auto child_1: dimensions) {
                 NumElements = NumElements * child_1;
             }
 
+
+//            std::string param_addr = param_name + ".addr";
+
+//            param_name = "n.addr";
             auto* type = dimensions.size() == 0 ? intType : PointerType::get(intType);
             alloc_inst = AllocaInst::Create(type, NumElements, entry_bb);
+
             alloc_inst->setName(param_name);
 
-            addAddr(symbol_table ,param_name , alloc_inst);
+            addAddr(symbol_table , param_name , alloc_inst);
+
+            StoreInst::Create(func->getArg(param_num), alloc_inst, entry_bb);
 
             param_num++;
         }
@@ -321,6 +328,8 @@ BasicBlock *translate::translate_stmt(NodePtr node, BasicBlock *current_bb, std:
             BasicBlock *true_bb;
             BasicBlock *false_bb;
 
+            std::cout << "111" << std::endl;
+
             if (else_stmt == nullptr) {
                 // If (Expr) Stmt
 
@@ -333,21 +342,26 @@ BasicBlock *translate::translate_stmt(NodePtr node, BasicBlock *current_bb, std:
                     std::cout << "If (Expr) Stmt include 'return'" << std::endl;
                 } else {
                     JumpInst::Create(exit_bb,true_exit_bb);
+                    exit_bb->insertInto(parent_func, return_bb);
                 }
 
             } else {
                 // If (Expr) Stmt1 Else Stmt2
+                std::cout << "222" << std::endl;
 
                 true_bb = BasicBlock::Create(parent_func, return_bb);
                 Value *cond_value = translate_expr(condition , current_bb, symbol_table);
                 false_bb = BasicBlock::Create(parent_func, return_bb);
                 BranchInst::Create(true_bb, false_bb, cond_value, current_bb);
 
+                std::cout << "333" << std::endl;
+
                 BasicBlock* true_exit_bb = translate_stmt(then_stmt, true_bb, symbol_table);
                 if (true_exit_bb == nullptr){
                     std::cout << "If (Expr) Stmt1 Else Stmt2 include 'return'" << std::endl;
                 } else {
                     JumpInst::Create(exit_bb,true_exit_bb);
+                    exit_bb->insertInto(parent_func, return_bb);
                 }
 
                 BasicBlock* false_exit_bb = translate_stmt(else_stmt, false_bb, symbol_table);
@@ -355,10 +369,11 @@ BasicBlock *translate::translate_stmt(NodePtr node, BasicBlock *current_bb, std:
                     std::cout << "If (Expr) Stmt1 Else Stmt2 include 'return'" << std::endl;
                 } else {
                     JumpInst::Create(exit_bb,false_exit_bb);
+                    exit_bb->insertInto(parent_func, return_bb);
                 }
 
             }
-            exit_bb->insertInto(parent_func, return_bb);
+
 
             std::cout << "ND_IfStmt finish" << std::endl;
             return exit_bb;
@@ -375,11 +390,8 @@ BasicBlock *translate::translate_stmt(NodePtr node, BasicBlock *current_bb, std:
             NodePtr body = node->as<WhileStmt*>()->body;
 
             BasicBlock *while_exit_bb = BasicBlock::Create(parent_func, return_bb);
-//            while_exit_bb->setName("While_exit");
             BasicBlock *while_entry_bb = BasicBlock::Create(parent_func, while_exit_bb);
-//            while_entry_bb->setName("While_entry");
             BasicBlock *while_body_bb = BasicBlock::Create(parent_func, while_exit_bb);
-//            while_body_bb->setName("While_body");
 
             JumpInst::Create(while_entry_bb,current_bb);
             Value *cond_value = translate_expr(condition , while_entry_bb, symbol_table);
@@ -414,12 +426,13 @@ BasicBlock *translate::translate_stmt(NodePtr node, BasicBlock *current_bb, std:
 
             NodePtr exp = node->as<ReturnStmt*>()->exp;
             Function* parent_func = current_bb->getParent();
+            Value* return_addr = getAddr(symbol_table, "ret.addr");
             Value* return_value;
             if (exp != nullptr){
                 return_value = translate_expr(exp , current_bb, symbol_table);
+                StoreInst::Create(return_value, return_addr, current_bb);
             }
-            Value* return_addr = getAddr(symbol_table, "ret.addr");
-            StoreInst::Create(return_value, return_addr, current_bb);
+
             JumpInst::Create(return_bb,current_bb);
 
             std::cout << "ND_ReturnStmt finish" << std::endl;
@@ -463,16 +476,13 @@ BasicBlock *translate::translate_stmt(NodePtr node, BasicBlock *current_bb, std:
                 }
                 alloc_inst->setName(var_name);
 
-                std::cout<< "add_value: " <<type<< std::endl;
                 addAddr(symbol_table, var_name, alloc_inst);
-                std::cout<< alloc_inst->getAllocatedType()<< std::endl;
 
                 if (init_value != nullptr) {
                     std::cout << "have init_value" << std::endl;
                     NodePtr init_value_exp = init_value->as<InitVal*>()->exp;
                     Value *result_value = translate_expr(init_value_exp ,current_bb , symbol_table);
                     StoreInst::Create(result_value, alloc_inst, current_bb);
-                    
                 }
             }
             std::cout << "ND_Decl finish" << std::endl;
@@ -624,7 +634,7 @@ Value *translate::translate_expr(NodePtr node, BasicBlock *current_bb, std::unor
                 // 如果没有下标访问，直接从符号表中获取值
                 auto it = symbol_table->find(name);
                 if (it != symbol_table->end()) {
-                    value = it->second;
+                    value = LoadInst::Create(it->second, current_bb);
                     // 使用 var_value 执行后续操作
                 } 
             }
