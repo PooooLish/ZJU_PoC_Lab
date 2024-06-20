@@ -316,32 +316,33 @@ BasicBlock *translate::translate_stmt(NodePtr node, BasicBlock *current_bb, std:
             NodePtr else_stmt = node->as<IfStmt*>()->else_stmt;
 
             Function *parent_func = current_bb->getParent();
-//            BasicBlock *return_bb = &(*parent_func->end());
 
-            BasicBlock *exit_bb = BasicBlock::Create(parent_func, return_bb);
-//            exit_bb->setName("If_exit");
+            BasicBlock *exit_bb = BasicBlock::Create();;
+            BasicBlock *true_bb;
+            BasicBlock *false_bb;
 
             if (else_stmt == nullptr) {
                 // If (Expr) Stmt
-                BasicBlock *true_bb = BasicBlock::Create(parent_func, exit_bb);
-//                true_bb->setName("If_true");
+
+                true_bb = BasicBlock::Create(parent_func, return_bb);
                 Value *cond_value = translate_expr(condition , current_bb, symbol_table);
                 BranchInst::Create(true_bb, exit_bb, cond_value, current_bb);
+
                 BasicBlock* true_exit_bb = translate_stmt(then_stmt, true_bb, symbol_table);
                 if (true_exit_bb == nullptr){
                     std::cout << "If (Expr) Stmt include 'return'" << std::endl;
                 } else {
                     JumpInst::Create(exit_bb,true_exit_bb);
                 }
+
             } else {
                 // If (Expr) Stmt1 Else Stmt2
 
-                BasicBlock *true_bb = BasicBlock::Create(parent_func, exit_bb);
-//                true_bb->setName("If_true");
+                true_bb = BasicBlock::Create(parent_func, return_bb);
                 Value *cond_value = translate_expr(condition , current_bb, symbol_table);
-                BasicBlock *false_bb = BasicBlock::Create(parent_func, exit_bb);
-//                false_bb->setName("If_false");
+                false_bb = BasicBlock::Create(parent_func, return_bb);
                 BranchInst::Create(true_bb, false_bb, cond_value, current_bb);
+
                 BasicBlock* true_exit_bb = translate_stmt(then_stmt, true_bb, symbol_table);
                 if (true_exit_bb == nullptr){
                     std::cout << "If (Expr) Stmt1 Else Stmt2 include 'return'" << std::endl;
@@ -357,6 +358,7 @@ BasicBlock *translate::translate_stmt(NodePtr node, BasicBlock *current_bb, std:
                 }
 
             }
+            exit_bb->insertInto(parent_func, return_bb);
 
             std::cout << "ND_IfStmt finish" << std::endl;
             return exit_bb;
