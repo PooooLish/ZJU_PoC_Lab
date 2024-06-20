@@ -87,7 +87,10 @@ void translate::traverse(NodePtr node) {
                 if (child->node_type == ND_Decl) { // 全局变量声明
                     std::cout<< "decl" << std::endl;
                     traverse(child);
-                } else if (child->node_type == ND_FuncDef) {  // 函数定义
+                }
+            }
+            for (auto child : compUnit->children){
+                if (child->node_type == ND_FuncDef) {  // 函数定义
                     std::cout<< "funcdef" << std::endl;
                     traverse(child);
                 }
@@ -96,6 +99,7 @@ void translate::traverse(NodePtr node) {
             break;
         }
         case ND_Decl: {
+            global_decl_list.push_back(node);
             processGlobalDecl(node);
             for (const auto& pair : _module.getGlobalVariableMap()) {
                 std::cout << pair.first << " : " << pair.second << std::endl;
@@ -123,7 +127,6 @@ void translate::processGlobalDecl(NodePtr node){
         NodePtr init_value = vardef->init_value;
         std::vector<int> array_indices = vardef->array_indices;
         std::size_t NumElements = 1;
-       
 
         for (auto child_2 : array_indices) {
             NumElements = NumElements * child_2;
@@ -201,6 +204,15 @@ void translate::processFuncDef(NodePtr node){
     return_alloc_inst->setName("ret.addr");
     addAddr(symbol_table ,"ret.addr" , return_alloc_inst);
 
+    if (func_name == "main"){
+        std::cout << "in main func" <<std::endl;
+        for (auto global_decl: global_decl_list) {
+            translate_stmt(global_decl, entry_bb, symbol_table);
+        }
+        std::cout << "decl global var finish" <<std::endl;
+    }
+
+
     return_bb = BasicBlock::Create(func, nullptr);
     return_bb->setName("Ret");
 
@@ -224,25 +236,16 @@ void translate::processFuncDef(NodePtr node){
             std::vector<int> dimensions = param->dimensions; // 存储数组的每个维度的大小
             Type *intType = Type::getIntegerTy();
 
-//            func->getArg(param_num)->setName(param_name); // 形参著名
-
             std::size_t NumElements = 1; // 形参元素个数
 
             for (auto child_1: dimensions) {
                 NumElements = NumElements * child_1;
             }
 
-
-//            std::string param_addr = param_name + ".addr";
-
-//            param_name = "n.addr";
             auto* type = dimensions.size() == 0 ? intType : PointerType::get(intType);
             alloc_inst = AllocaInst::Create(type, NumElements, entry_bb);
-
             alloc_inst->setName(param_name);
-
             addAddr(symbol_table , param_name , alloc_inst);
-
             StoreInst::Create(func->getArg(param_num), alloc_inst, entry_bb);
 
             param_num++;
@@ -342,7 +345,6 @@ BasicBlock *translate::translate_stmt(NodePtr node, BasicBlock *current_bb, std:
                     std::cout << "If (Expr) Stmt include 'return'" << std::endl;
                 } else {
                     JumpInst::Create(exit_bb,true_exit_bb);
-                    exit_bb->insertInto(parent_func, return_bb);
                 }
 
             } else {
@@ -361,7 +363,6 @@ BasicBlock *translate::translate_stmt(NodePtr node, BasicBlock *current_bb, std:
                     std::cout << "If (Expr) Stmt1 Else Stmt2 include 'return'" << std::endl;
                 } else {
                     JumpInst::Create(exit_bb,true_exit_bb);
-                    exit_bb->insertInto(parent_func, return_bb);
                 }
 
                 BasicBlock* false_exit_bb = translate_stmt(else_stmt, false_bb, symbol_table);
@@ -369,10 +370,10 @@ BasicBlock *translate::translate_stmt(NodePtr node, BasicBlock *current_bb, std:
                     std::cout << "If (Expr) Stmt1 Else Stmt2 include 'return'" << std::endl;
                 } else {
                     JumpInst::Create(exit_bb,false_exit_bb);
-                    exit_bb->insertInto(parent_func, return_bb);
                 }
 
             }
+            exit_bb->insertInto(parent_func, return_bb);
 
 
             std::cout << "ND_IfStmt finish" << std::endl;

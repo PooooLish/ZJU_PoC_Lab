@@ -44,6 +44,8 @@ public:
 
     BasicBlock* return_bb;
 
+    std::vector<NodePtr> global_decl_list;
+
 };
 
 
