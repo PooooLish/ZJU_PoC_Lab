@@ -100,7 +100,6 @@ void translate::traverse(NodePtr node) {
             break;
         }
         case ND_Decl: {
-            global_decl_list.push_back(node);
             processGlobalDecl(node);
             for (const auto& pair : _module.getGlobalVariableMap()) {
                 std::cout << pair.first << " : " << pair.second << std::endl;
@@ -120,26 +119,48 @@ void translate::traverse(NodePtr node) {
 
 void translate::processGlobalDecl(NodePtr node){
     struct VarDecl* vardecl = node->as<Decl*>()->vardecl->as<VarDecl*>();
+    std::string btype = vardecl->btype;
     struct VarDefList* vardeflist = vardecl->vardeflist->as<VarDefList*>();
+    Type *intType = Type::getIntegerTy(); // change by btype
  
-    for (auto child_1 : vardeflist->children) {
-        struct VarDef* vardef = child_1->as<VarDef*>();
+    for (auto child : vardeflist->children) {
+        struct VarDef* vardef = child->as<VarDef*>();
         std::string var_name = vardef->var_name;
         NodePtr init_value = vardef->init_value;
         std::vector<int> array_indices = vardef->array_indices;
         std::size_t NumElements = 1;
 
-        for (auto child_2 : array_indices) {
-            NumElements = NumElements * child_2;
+        std::vector<std::optional<std::size_t>> arr_bounds;
+
+        if (init_value != nullptr) {
+            global_init_def_list.push_back(child);
         }
+
+        for(auto child_1: array_indices){
+            if( child_1 != -1){
+                arr_bounds.push_back(child_1);
+                std::cout << "arr_bounds: " << child_1 << std::endl;
+            }
+            else
+                arr_bounds.push_back(std::nullopt);
+        }
+        arr_bounds_table[var_name] = arr_bounds;
+
+        for (auto child_1 : array_indices) {
+            NumElements = NumElements * child_1;
+        }
+
+        GlobalVariable *global_var;
         if (array_indices.size() != 0) {
-            Type *intType = Type::getIntegerTy();
-            Type *pointerType = PointerType::get(intType);
-            GlobalVariable *global_var = GlobalVariable::Create(pointerType, NumElements, true, var_name , &_module);
+            std::cout << var_name << "  pointer" << std::endl;
+//            Type *pointerType = PointerType::get(intType);
+            global_var = GlobalVariable::Create(intType, NumElements, true, var_name , &_module);
         } else {
-            Type *intType = Type::getIntegerTy();
-            GlobalVariable *global_var = GlobalVariable::Create(intType, NumElements, true, var_name , &_module);
+            std::cout << var_name << "  int" << std::endl;
+            global_var = GlobalVariable::Create(intType, NumElements, true, var_name , &_module);
         }
+
+        addAddr(&global_symbol_map, var_name, global_var);
     }
     for (const auto& pair : _module.getGlobalVariableMap()) {
         std::cout << pair.first << " : " << pair.second << std::endl;
@@ -195,6 +216,7 @@ void translate::processFuncDef(NodePtr node){
     std::cout << "params: " << func->getNumParams() <<std::endl;
 
     func_symbol_table.clear();
+    func_symbol_table.insert(global_symbol_map.begin(), global_symbol_map.end());
     SymbolTable* symbol_table = &func_symbol_table;
 
     entry_bb = BasicBlock::Create(func, nullptr);
@@ -202,7 +224,6 @@ void translate::processFuncDef(NodePtr node){
 
     AllocaInst* return_alloc_inst;
 
-    
     if(returnType == Type::getIntegerTy())
         std::cout << "int" <<std::endl;
     else if(returnType == Type::getUnitTy())
@@ -214,23 +235,26 @@ void translate::processFuncDef(NodePtr node){
         return_alloc_inst = AllocaInst::Create(returnType, 1, entry_bb);
         return_alloc_inst->setName("ret.addr");
         addAddr(symbol_table ,"ret.addr" , return_alloc_inst);
-
-
-
-
     }
-   
-    
-    
 
     if (func_name == "main"){
         std::cout << "in main func" <<std::endl;
-        for (auto global_decl: global_decl_list) {
-            translate_stmt(global_decl, entry_bb, symbol_table);
+        for (auto global_def: global_init_def_list) {
+
+            struct VarDef *vardef = global_def->as<VarDef *>();
+            std::string var_name = vardef->var_name;
+            NodePtr init_value = vardef->init_value;
+            NodePtr init_value_exp = init_value->as<InitVal*>()->exp;
+
+            Value *global_value = getAddr(symbol_table, var_name);
+
+            Value *result_value = translate_expr(init_value_exp , entry_bb , symbol_table);
+
+            StoreInst::Create(result_value, global_value, entry_bb);
+
         }
         std::cout << "decl global var finish" <<std::endl;
     }
-    
 
     return_bb = BasicBlock::Create(func, nullptr);
     return_bb->setName("Ret");
@@ -273,7 +297,6 @@ void translate::processFuncDef(NodePtr node){
 
             auto* type = dimensions.size() == 0 ? intType : PointerType::get(intType);
             type = intType;
-            std::cout << "param_name1111111111111111111111111:" << type << std::endl;
             alloc_inst = AllocaInst::Create(type, NumElements, entry_bb);
             alloc_inst->setName(param_name);
             addAddr(symbol_table , param_name , alloc_inst);
@@ -287,6 +310,9 @@ void translate::processFuncDef(NodePtr node){
 
     std::cout << "printSymbolTable: "<<std::endl;
     printSymbolTable(*symbol_table);
+
+    std::cout << "printGlobalSymbolTable: "<<std::endl;
+    printSymbolTable(global_symbol_map);
 
 }
 
@@ -338,7 +364,8 @@ BasicBlock *translate::translate_stmt(NodePtr node, BasicBlock *current_bb, std:
                     Value *index = translate_expr(child, current_bb, symbol_table);
                     indices.push_back(index);
                 }
-                addr_value = OffsetInst::Create(Type::getIntegerTy(),addr_value, indices, arr_bounds_table[ident_name], current_bb);
+                std::cout << "111111111" << std::endl;
+                addr_value = OffsetInst::Create(Type::getIntegerTy(), addr_value, indices, arr_bounds_table[ident_name], current_bb);
             }
             Value *result_value = translate_expr(rhs ,current_bb , symbol_table);
 
@@ -498,7 +525,6 @@ BasicBlock *translate::translate_stmt(NodePtr node, BasicBlock *current_bb, std:
                 std::size_t NumElements = 1; // 元素个数
 
                 std::vector<std::optional<std::size_t>> arr_bounds;
-                Type *intType = Type::getIntegerTy();
 
                 for(auto child_1: array_indices){
                     if( child_1 != -1){
@@ -715,11 +741,13 @@ Value *translate::translate_expr(NodePtr node, BasicBlock *current_bb, std::unor
                 std::cout << "addr_value->getType() " << addr_value->getType()<< std::endl;
                 if(addr_value->getType() != Type::getIntegerTy()) {
                     std::cout << "addr_value->"<< std::endl;
+                    std::cout << "2222222222" << std::endl;
                     addr_value = OffsetInst::Create(Type::getIntegerTy(),addr_value, indices, arr_bounds_table[name], current_bb);  
                     std::cout << "addr_value->"<< std::endl;
                     value = LoadInst::Create(addr_value, current_bb);
                     // 使用 var_value 执行后续操作
                 } else{
+                    std::cout << "333333333" << std::endl;
                     Value *offset = OffsetInst::Create(Type::getIntegerTy(),addr_value, indices, arr_bounds_table[name], current_bb);  
                     value = LoadInst::Create(offset, current_bb);
                 }
