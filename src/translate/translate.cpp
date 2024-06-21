@@ -272,6 +272,8 @@ void translate::processFuncDef(NodePtr node){
             }
 
             auto* type = dimensions.size() == 0 ? intType : PointerType::get(intType);
+            type = intType;
+            std::cout << "param_name1111111111111111111111111:" << type << std::endl;
             alloc_inst = AllocaInst::Create(type, NumElements, entry_bb);
             alloc_inst->setName(param_name);
             addAddr(symbol_table , param_name , alloc_inst);
@@ -336,7 +338,7 @@ BasicBlock *translate::translate_stmt(NodePtr node, BasicBlock *current_bb, std:
                     Value *index = translate_expr(child, current_bb, symbol_table);
                     indices.push_back(index);
                 }
-                addr_value = OffsetInst::Create(PointerType::get(Type::getIntegerTy()),addr_value, indices, arr_bounds_table[ident_name], current_bb);
+                addr_value = OffsetInst::Create(Type::getIntegerTy(),addr_value, indices, arr_bounds_table[ident_name], current_bb);
             }
             Value *result_value = translate_expr(rhs ,current_bb , symbol_table);
 
@@ -518,7 +520,7 @@ BasicBlock *translate::translate_stmt(NodePtr node, BasicBlock *current_bb, std:
                 AllocaInst *alloc_inst;
 
                 auto* type = array_indices.size() == 0 ? intType : PointerType::get(intType);
-
+                type = intType;
                 if (current_bb == entry_bb){
                     alloc_inst = AllocaInst::Create(type, NumElements, entry_bb);
                 }
@@ -712,12 +714,13 @@ Value *translate::translate_expr(NodePtr node, BasicBlock *current_bb, std::unor
                 std::cout << Type::getUnitTy()<< std::endl;
                 std::cout << "addr_value->getType() " << addr_value->getType()<< std::endl;
                 if(addr_value->getType() != Type::getIntegerTy()) {
-                    addr_value = OffsetInst::Create(PointerType::get(Type::getIntegerTy()),addr_value, indices, arr_bounds_table[name], current_bb);  
+                    std::cout << "addr_value->"<< std::endl;
+                    addr_value = OffsetInst::Create(Type::getIntegerTy(),addr_value, indices, arr_bounds_table[name], current_bb);  
                     std::cout << "addr_value->"<< std::endl;
                     value = LoadInst::Create(addr_value, current_bb);
                     // 使用 var_value 执行后续操作
                 } else{
-                    Value *offset = OffsetInst::Create(PointerType::get(Type::getIntegerTy()),addr_value, indices, arr_bounds_table[name], current_bb);  
+                    Value *offset = OffsetInst::Create(Type::getIntegerTy(),addr_value, indices, arr_bounds_table[name], current_bb);  
                     value = LoadInst::Create(offset, current_bb);
                 }
                 
