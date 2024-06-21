@@ -14,6 +14,7 @@ using SymbolTable = std::unordered_map<std::string, Value*>;
 void translate::addAddr(std::unordered_map<std::string, Value*>* symbol_table, std::string name, Value* value) {
     (*symbol_table)[name] = value;
     std::cout << "Add value: " << name << std::endl;
+    return;
 }
 
 Value* translate::getAddr(const std::unordered_map<std::string, Value*>* symbol_table, std::string name) {
@@ -200,9 +201,27 @@ void translate::processFuncDef(NodePtr node){
     entry_bb->setName("Entry");
 
     AllocaInst* return_alloc_inst;
-    return_alloc_inst = AllocaInst::Create(returnType, 1, entry_bb);
-    return_alloc_inst->setName("ret.addr");
-    addAddr(symbol_table ,"ret.addr" , return_alloc_inst);
+
+    
+    if(returnType == Type::getIntegerTy())
+        std::cout << "int" <<std::endl;
+    else if(returnType == Type::getUnitTy())
+        std::cout << "void" <<std::endl;
+    else
+        std::cout << "other" <<std::endl;
+
+    if(returnType == Type::getIntegerTy()){
+        return_alloc_inst = AllocaInst::Create(returnType, 1, entry_bb);
+        return_alloc_inst->setName("ret.addr");
+        addAddr(symbol_table ,"ret.addr" , return_alloc_inst);
+
+
+
+
+    }
+   
+    
+    
 
     if (func_name == "main"){
         std::cout << "in main func" <<std::endl;
@@ -211,20 +230,19 @@ void translate::processFuncDef(NodePtr node){
         }
         std::cout << "decl global var finish" <<std::endl;
     }
-
+    
 
     return_bb = BasicBlock::Create(func, nullptr);
     return_bb->setName("Ret");
-
     LoadInst* return_value_inst;
-    return_value_inst = LoadInst::Create(return_alloc_inst, return_bb);
-    return_value_inst->setName("ret.val");
-
-    RetInst* ret_inst;
-    ret_inst = RetInst::Create(return_value_inst, return_bb);
-
+    if(returnType == Type::getIntegerTy()){
+        return_value_inst = LoadInst::Create(return_alloc_inst, return_bb);
+        return_value_inst->setName("ret.val");
+        RetInst* ret_inst;
+        ret_inst = RetInst::Create(return_value_inst, return_bb);
+    }
     if (temp->params != nullptr){
-
+        
         params = temp->params->as<FuncFParams*>();
         AllocaInst *alloc_inst;
         int param_num = 0;
@@ -234,7 +252,18 @@ void translate::processFuncDef(NodePtr node){
             std::string param_type = param->param_type;
             std::string param_name = param->param_name;
             std::vector<int> dimensions = param->dimensions; // 存储数组的每个维度的大小
+            std::vector<std::optional<std::size_t>> arr_bounds;
             Type *intType = Type::getIntegerTy();
+
+            for(auto child_1: dimensions){
+                if( child_1 != -1){
+                    arr_bounds.push_back(child_1);
+                    std::cout << "arr_bounds: " << child_1 << std::endl;
+                }
+                else
+                    arr_bounds.push_back(std::nullopt);
+            }
+            arr_bounds_table[param_name] = arr_bounds;
 
             std::size_t NumElements = 1; // 形参元素个数
 
@@ -301,6 +330,14 @@ BasicBlock *translate::translate_stmt(NodePtr node, BasicBlock *current_bb, std:
             std::cout << "ident_name: "<< ident_name;
 
             Value *addr_value = getAddr(symbol_table, ident_name);
+            if (lhs->as<Lval*>()->lvalexplist != nullptr) {
+                std::vector<Value*> indices;
+                for (auto child : lhs->as<Lval*>()->lvalexplist->as<LValExpList*>()->children) {
+                    Value *index = translate_expr(child, current_bb, symbol_table);
+                    indices.push_back(index);
+                }
+                addr_value = OffsetInst::Create(PointerType::get(Type::getIntegerTy()),addr_value, indices, arr_bounds_table[ident_name], current_bb);
+            }
             Value *result_value = translate_expr(rhs ,current_bb , symbol_table);
 
             StoreInst::Create(result_value, addr_value, current_bb);
@@ -458,6 +495,19 @@ BasicBlock *translate::translate_stmt(NodePtr node, BasicBlock *current_bb, std:
                 std::vector<int> array_indices = vardef->array_indices; // 可能存在的多维度
                 std::size_t NumElements = 1; // 元素个数
 
+                std::vector<std::optional<std::size_t>> arr_bounds;
+                Type *intType = Type::getIntegerTy();
+
+                for(auto child_1: array_indices){
+                    if( child_1 != -1){
+                        arr_bounds.push_back(child_1);
+                        std::cout << "arr_bounds: " << child_1 << std::endl;
+                    }
+                    else
+                        arr_bounds.push_back(std::nullopt);
+                }
+                arr_bounds_table[var_name] = arr_bounds;
+
                 for (auto child_1: array_indices) {
                     NumElements = NumElements * child_1;
                 }
@@ -523,49 +573,59 @@ Value *translate::translate_expr(NodePtr node, BasicBlock *current_bb, std::unor
             // Mapping from binary operator type to the corresponding creation function
             switch (binaryExp->op) {
                 case Add:
-                    std::cout << lhs->getType()<< " "<<rhs->ConstantIntVal << std::endl;
-                    std::cout<<"11111111"<<Type::getIntegerTy()<<std::endl;
+                    std::cout << "Add" << std::endl;
                     value = BinaryInst::CreateAdd(lhs, rhs, lhs->getType(), current_bb);
                     break;
                 case Sub:
-                    
+                    std::cout << "Sub" << std::endl;
                     value = BinaryInst::CreateSub(lhs, rhs, lhs->getType(), current_bb);
                     break;
                 case Mul:
+                    std::cout << "Mul" << std::endl;
                     value = BinaryInst::CreateMul(lhs, rhs, lhs->getType(), current_bb);
                     break;
                 case Div:
+                    std::cout << "Div" << std::endl;
                     value = BinaryInst::CreateDiv(lhs, rhs, lhs->getType(), current_bb);
                     break;
                 case Mod:
+                    std::cout << "Mod" << std::endl;
                     value = BinaryInst::CreateMod(lhs, rhs, lhs->getType(), current_bb);
                     break;
                 case Eq:
-                    std::cout << lhs->getType() << " "<<rhs->getType() << std::endl;
+                    std::cout << "Eq" << std::endl;
                     value = BinaryInst::CreateEq(lhs, rhs, lhs->getType(), current_bb);
                     break;
                 case Ne:
+                    std::cout << "Ne" << std::endl;
                     value = BinaryInst::CreateNe(lhs, rhs, lhs->getType(), current_bb);
                     break;
                 case Lt:
+                    std::cout << "Lt" << std::endl;
                     value = BinaryInst::CreateLt(lhs, rhs, lhs->getType(), current_bb);
                     break;
                 case Gt:
+                    std::cout << "Gt" << std::endl;
                     value = BinaryInst::CreateGt(lhs, rhs, lhs->getType(), current_bb);
                     break;
                 case Le:
+                    std::cout << "Le" << std::endl;
                     value = BinaryInst::CreateLe(lhs, rhs, lhs->getType(), current_bb);
                     break;
                 case Ge:
+                    std::cout << "Ge" << std::endl;
                     value = BinaryInst::CreateGe(lhs, rhs, lhs->getType(), current_bb);
                     break;
                 case And:
+                    std::cout << "And" << std::endl;
                     value = BinaryInst::CreateAnd(lhs, rhs, lhs->getType(), current_bb);
                     break;
                 case Or:
+                    std::cout << "Or" << std::endl;
                     value = BinaryInst::CreateOr(lhs, rhs, lhs->getType(), current_bb);
                     break;
                 case Xor:
+                    std::cout << "Xor" << std::endl;
                     value = BinaryInst::CreateXor(lhs, rhs, lhs->getType(), current_bb);
                     break;
                     // Add other binary operators as needed
@@ -648,8 +708,19 @@ Value *translate::translate_expr(NodePtr node, BasicBlock *current_bb, std::unor
                     Value *index = translate_expr(child, current_bb, symbol_table);
                     indices.push_back(index);
                 }
-                // Value *offset = OffsetInst::Create(array->getType(),array, indices, current_bb);
-                // value = LoadInst::Create(array, indices, current_bb);
+                std::cout << Type::getIntegerTy()<< std::endl;
+                std::cout << Type::getUnitTy()<< std::endl;
+                std::cout << "addr_value->getType() " << addr_value->getType()<< std::endl;
+                if(addr_value->getType() != Type::getIntegerTy()) {
+                    addr_value = OffsetInst::Create(PointerType::get(Type::getIntegerTy()),addr_value, indices, arr_bounds_table[name], current_bb);  
+                    std::cout << "addr_value->"<< std::endl;
+                    value = LoadInst::Create(addr_value, current_bb);
+                    // 使用 var_value 执行后续操作
+                } else{
+                    Value *offset = OffsetInst::Create(PointerType::get(Type::getIntegerTy()),addr_value, indices, arr_bounds_table[name], current_bb);  
+                    value = LoadInst::Create(offset, current_bb);
+                }
+                
             }
             break;
         }

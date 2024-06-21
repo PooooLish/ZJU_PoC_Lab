@@ -20,6 +20,10 @@ public:
 
     std::unordered_map<std::string, Value*> global_symbol_map;
 
+    std::unordered_map<std::string, std::vector<std::optional<std::size_t>>> arr_bounds_table;
+
+    // std::unordered_map<std::string, std::vector<std::optional<std::size_t>>> arr_bounds_table;
+
     const Module &getModule() const { return _module; }
 
     Module _module;

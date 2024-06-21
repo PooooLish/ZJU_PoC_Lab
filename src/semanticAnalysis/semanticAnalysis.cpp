@@ -35,6 +35,18 @@ int semanticAnalysis(NodePtr node) {
         std::vector<std::vector<int>> params2 = {};
         funcparam["getint"] = params2;
         funcreturn["getint"] = "int";
+        std::vector<std::vector<int>> params4 = {};
+        funcparam["getarray"] = params4;
+        funcreturn["getarray"] = "int";
+        std::vector<std::vector<int>> params5 = {{}};
+        funcparam["putch"] = params5;
+        funcreturn["putch"] = "void";
+        std::vector<std::vector<int>> params6 = {};
+        funcparam["getch"] = params6;
+        funcreturn["getch"] = "int";
+        std::vector<std::vector<int>> params7 = {{}};
+        funcparam["putarray"] = params7;
+        funcreturn["putarray"] = "void";
         first = 1;
     }
     if (node == nullptr)
@@ -437,10 +449,11 @@ int semanticAnalysis(NodePtr node) {
                                 return 1;
                             }
                             // 检查函数参数是否匹配
-                            if (funcparam[exp->exp->as<UnaryExp*>()->ident_name].size() != 0) {
-                                std::cerr << "Error: Function '" << exp->exp->as<UnaryExp*>()->ident_name << "' parameter number does not match\n";
-                                return 1;
-                            }
+                            // if (funcparam[exp->exp->as<UnaryExp*>()->ident_name].size() != 0) {
+                            //     std::cout << funcparam[exp->exp->as<UnaryExp*>()->ident_name].size() << std::endl;
+                            //     std::cerr << "Error: Function '" << exp->exp->as<UnaryExp*>()->ident_name << "' parameter number does not match\n";
+                            //     return 1;
+                            // }
                             int error = semanticAnalysis(exp->exp);
                             if(error != 0){
                                 return error;

@@ -162,11 +162,11 @@ EqExp       : RelExp                                { $$ = $1; if (TESTPRINT) { 
             ;
 
 LAndExp     : EqExp                                 { $$ = $1; if (TESTPRINT) { printf("[LAndExp->EqExp] \n"); } }
-            | LAndExp AND EqExp                     { $$ = new BinaryExp(OpType::Land, $1, $3); if (TESTPRINT) { printf("[LAndExp->LAndExp AND EqExp] \n"); } }
+            | LAndExp AND EqExp                     { $$ = new BinaryExp(OpType::And, $1, $3); if (TESTPRINT) { printf("[LAndExp->LAndExp AND EqExp] \n"); } }
             ;
 
 LOrExp      : LAndExp                               { $$ = $1; if (TESTPRINT) { printf("[LOrExp->LAndExp] \n"); }}
-            | LOrExp OR LAndExp                     { $$ = new BinaryExp(OpType::Lor, $1, $3); if (TESTPRINT) { printf("[LOrExp->LAndExp OR LAndExp] \n"); }}
+            | LOrExp OR LAndExp                     { $$ = new BinaryExp(OpType::Or, $1, $3); if (TESTPRINT) { printf("[LOrExp->LAndExp OR LAndExp] \n"); }}
             ;
 
 %%
