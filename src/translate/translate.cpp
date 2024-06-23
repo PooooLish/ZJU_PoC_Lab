@@ -101,9 +101,6 @@ void translate::traverse(NodePtr node) {
         }
         case ND_Decl: {
             processGlobalDecl(node);
-            for (const auto& pair : _module.getGlobalVariableMap()) {
-                std::cout << pair.first << " : " << pair.second << std::endl;
-            }
             break;
         }
         case ND_FuncDef: {
@@ -139,7 +136,6 @@ void translate::processGlobalDecl(NodePtr node){
         for(auto child_1: array_indices){
             if( child_1 != -1){
                 arr_bounds.push_back(child_1);
-                std::cout << "arr_bounds: " << child_1 << std::endl;
             }
             else
                 arr_bounds.push_back(std::nullopt);
@@ -152,19 +148,14 @@ void translate::processGlobalDecl(NodePtr node){
 
         GlobalVariable *global_var;
         if (array_indices.size() != 0) {
-            std::cout << var_name << "  pointer" << std::endl;
-//            Type *pointerType = PointerType::get(intType);
             global_var = GlobalVariable::Create(intType, NumElements, true, var_name , &_module);
         } else {
-            std::cout << var_name << "  int" << std::endl;
             global_var = GlobalVariable::Create(intType, NumElements, true, var_name , &_module);
         }
 
         addAddr(&global_symbol_map, var_name, global_var);
     }
-    for (const auto& pair : _module.getGlobalVariableMap()) {
-        std::cout << pair.first << " : " << pair.second << std::endl;
-    }
+
 }
 
 void translate::processFuncDef(NodePtr node){
@@ -174,8 +165,6 @@ void translate::processFuncDef(NodePtr node){
     std::string func_name = temp->func_name;
     NodePtr body = temp->body;
 
-    // Function 返回类型
-    std::cout << return_type << "  " << func_name << std::endl;
     Type *returnType;
     if (return_type == "int") {
         returnType = Type::getIntegerTy();
@@ -191,7 +180,6 @@ void translate::processFuncDef(NodePtr node){
     } else {
         std::cout << "have params" << std::endl;
         params = temp->params->as<FuncFParams*>();
-        std::cout << params->children.size() << std::endl;
 
         for (auto child :params->children) {
             struct FuncFParam* param= child->as<FuncFParam*>();
@@ -213,8 +201,6 @@ void translate::processFuncDef(NodePtr node){
     FunctionType *funcType = FunctionType::get(returnType, paramTypes);
     Function *func = Function::Create(funcType, false, func_name , &_module);
 
-    std::cout << "params: " << func->getNumParams() <<std::endl;
-
     func_symbol_table.clear();
     func_symbol_table.insert(global_symbol_map.begin(), global_symbol_map.end());
     SymbolTable* symbol_table = &func_symbol_table;
@@ -223,13 +209,6 @@ void translate::processFuncDef(NodePtr node){
     entry_bb->setName("Entry");
 
     AllocaInst* return_alloc_inst;
-
-    if(returnType == Type::getIntegerTy())
-        std::cout << "int" <<std::endl;
-    else if(returnType == Type::getUnitTy())
-        std::cout << "void" <<std::endl;
-    else
-        std::cout << "other" <<std::endl;
 
     if(returnType == Type::getIntegerTy()){
         return_alloc_inst = AllocaInst::Create(returnType, 1, entry_bb);
@@ -355,7 +334,6 @@ BasicBlock *translate::translate_stmt(NodePtr node, BasicBlock *current_bb, std:
             NodePtr lhs = node->as<AssignStmt*>()->lhs;
             NodePtr rhs = node->as<AssignStmt*>()->rhs;
             std::string ident_name = lhs->as<Lval*>()->ident_name;
-            std::cout << "ident_name: "<< ident_name;
 
             Value *addr_value = getAddr(symbol_table, ident_name);
             if (lhs->as<Lval*>()->lvalexplist != nullptr) {
@@ -364,7 +342,6 @@ BasicBlock *translate::translate_stmt(NodePtr node, BasicBlock *current_bb, std:
                     Value *index = translate_expr(child, current_bb, symbol_table);
                     indices.push_back(index);
                 }
-                std::cout << "111111111" << std::endl;
                 addr_value = OffsetInst::Create(Type::getIntegerTy(), addr_value, indices, arr_bounds_table[ident_name], current_bb);
             }
             Value *result_value = translate_expr(rhs ,current_bb , symbol_table);
@@ -397,8 +374,6 @@ BasicBlock *translate::translate_stmt(NodePtr node, BasicBlock *current_bb, std:
             BasicBlock *true_bb;
             BasicBlock *false_bb;
 
-            std::cout << "111" << std::endl;
-
             if (else_stmt == nullptr) {
                 // If (Expr) Stmt
 
@@ -415,14 +390,11 @@ BasicBlock *translate::translate_stmt(NodePtr node, BasicBlock *current_bb, std:
 
             } else {
                 // If (Expr) Stmt1 Else Stmt2
-                std::cout << "222" << std::endl;
 
                 true_bb = BasicBlock::Create(parent_func, return_bb);
                 Value *cond_value = translate_expr(condition , current_bb, symbol_table);
                 false_bb = BasicBlock::Create(parent_func, return_bb);
                 BranchInst::Create(true_bb, false_bb, cond_value, current_bb);
-
-                std::cout << "333" << std::endl;
 
                 BasicBlock* true_exit_bb = translate_stmt(then_stmt, true_bb, symbol_table);
                 if (true_exit_bb == nullptr){
@@ -688,7 +660,6 @@ Value *translate::translate_expr(NodePtr node, BasicBlock *current_bb, std::unor
                 if(operand->getType() != Type::getIntegerTy()) {
                     operand = LoadInst::Create(operand, current_bb);
                 }
-                std::cout<<"11111111"<<std::endl;
                 if (unaryExp->op==Neg) {
                     Value* zero_value = ConstantInt::Create(0);
                     value = BinaryInst::CreateSub(zero_value, operand, operand->getType(), current_bb);
@@ -712,7 +683,6 @@ Value *translate::translate_expr(NodePtr node, BasicBlock *current_bb, std::unor
         case ND_IntegerLiteral: {
             auto intLiteral = node->as<IntegerLiteral*>();
             ConstantInt *value1 = ConstantInt::Create(intLiteral->value);
-            std::cout <<"       " <<value1->getType() << std::endl;
             value = value1;
             break;
         }
@@ -736,18 +706,12 @@ Value *translate::translate_expr(NodePtr node, BasicBlock *current_bb, std::unor
                     Value *index = translate_expr(child, current_bb, symbol_table);
                     indices.push_back(index);
                 }
-                std::cout << Type::getIntegerTy()<< std::endl;
-                std::cout << Type::getUnitTy()<< std::endl;
-                std::cout << "addr_value->getType() " << addr_value->getType()<< std::endl;
+
                 if(addr_value->getType() != Type::getIntegerTy()) {
-                    std::cout << "addr_value->"<< std::endl;
-                    std::cout << "2222222222" << std::endl;
-                    addr_value = OffsetInst::Create(Type::getIntegerTy(),addr_value, indices, arr_bounds_table[name], current_bb);  
-                    std::cout << "addr_value->"<< std::endl;
+                    addr_value = OffsetInst::Create(Type::getIntegerTy(),addr_value, indices, arr_bounds_table[name], current_bb);
                     value = LoadInst::Create(addr_value, current_bb);
                     // 使用 var_value 执行后续操作
                 } else{
-                    std::cout << "333333333" << std::endl;
                     Value *offset = OffsetInst::Create(Type::getIntegerTy(),addr_value, indices, arr_bounds_table[name], current_bb);  
                     value = LoadInst::Create(offset, current_bb);
                 }
